@@ -33,7 +33,7 @@ func (r *AuthRepository) GetUserByIdentifier(identifier string) (*model.Users, e
 		&user.PasswordHash,
 		&user.FullName,
 		&user.RoleID,
-		&user.ISActive,
+		&user.IsActive,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)

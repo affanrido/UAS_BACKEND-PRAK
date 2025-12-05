@@ -46,7 +46,7 @@ func (a *AuthService) Login(identifier, password string) (*model.LoginResponse, 
 	}
 
 	// 3. Cek status aktif user
-	if !user.ISActive {
+	if !user.IsActive {
 		return nil, errors.New("user account is inactive")
 	}
 

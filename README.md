@@ -4,12 +4,20 @@ Backend API untuk sistem autentikasi dengan RBAC (Role-Based Access Control).
 
 ## Features
 
+### FR-001: Login ✅
 - ✅ Login dengan username/email dan password
 - ✅ JWT token authentication
-- ✅ Role-Based Access Control (RBAC)
 - ✅ Password hashing dengan bcrypt
 - ✅ Status user aktif/non-aktif
-- ✅ Permissions management
+- ✅ Generate JWT dengan role dan permissions
+
+### FR-002: RBAC Middleware ✅
+- ✅ JWT extraction dari header
+- ✅ Token validation
+- ✅ Permission check per endpoint
+- ✅ In-memory cache dengan TTL
+- ✅ Multiple permission strategies (any, all, single)
+- ✅ Role-based access control
 
 ## Tech Stack
 
@@ -71,7 +79,7 @@ Server akan berjalan di `http://localhost:8080`
 
 ## API Endpoints
 
-### Authentication
+### Public Endpoints
 
 #### POST /api/auth/login
 
@@ -123,8 +131,6 @@ Login dengan username/email dan password.
 }
 ```
 
-### Health Check
-
 #### GET /health
 
 Check server status.
@@ -135,6 +141,100 @@ Check server status.
 {
   "status": "ok"
 }
+```
+
+---
+
+### Protected Endpoints (Require Authentication)
+
+All protected endpoints require `Authorization: Bearer <token>` header.
+
+#### GET /api/profile
+
+Get user profile (authentication only, no permission check).
+
+**Headers:**
+```
+Authorization: Bearer <your_jwt_token>
+```
+
+**Success Response (200):**
+```json
+{
+  "message": "Profile accessed",
+  "user_id": "770e8400-e29b-41d4-a716-446655440001"
+}
+```
+
+---
+
+#### GET /api/students
+
+Get students list. Requires `student.read` permission.
+
+**Headers:**
+```
+Authorization: Bearer <your_jwt_token>
+```
+
+**Success Response (200):**
+```json
+{
+  "message": "Students list",
+  "permissions": ["student.read", "student.write"]
+}
+```
+
+**Error Response (403):**
+```json
+{
+  "error": "Forbidden: Insufficient permissions",
+  "required": "student.read"
+}
+```
+
+---
+
+#### POST /api/students
+
+Create new student. Requires `student.write` permission.
+
+**Headers:**
+```
+Authorization: Bearer <your_jwt_token>
+```
+
+---
+
+#### POST /api/achievements/:id/verify
+
+Verify achievement. Requires `achievement.verify` permission.
+
+**Headers:**
+```
+Authorization: Bearer <your_jwt_token>
+```
+
+---
+
+#### GET /api/admin/dashboard
+
+Admin dashboard. Requires `admin` role.
+
+**Headers:**
+```
+Authorization: Bearer <your_jwt_token>
+```
+
+---
+
+#### GET /api/reports
+
+Reports endpoint. Requires any of: `student.read`, `lecturer.read`, or `achievement.read`.
+
+**Headers:**
+```
+Authorization: Bearer <your_jwt_token>
 ```
 
 ## Test Users
@@ -185,13 +285,35 @@ curl -X POST http://localhost:8080/api/auth/login \
 └── main.go              # Application entry point
 ```
 
-## FR-001: Login Flow
+## Feature Implementation
+
+### FR-001: Login Flow ✅
 
 1. ✅ User mengirim kredensial (username/email + password)
 2. ✅ Sistem memvalidasi kredensial dari database
 3. ✅ Sistem mengecek status aktif user
 4. ✅ Sistem generate JWT token dengan role dan permissions
 5. ✅ Return token dan user profile
+
+### FR-002: RBAC Middleware Flow ✅
+
+1. ✅ Ekstrak JWT dari header Authorization
+2. ✅ Validasi token (signature, expiry)
+3. ✅ Load user permissions dari cache/database
+4. ✅ Check apakah user memiliki permission yang diperlukan
+5. ✅ Allow/deny request
+
+**Middleware Types:**
+- `Authenticate()` - JWT validation only
+- `RequirePermission(perm)` - Single permission check
+- `RequireAnyPermission(perms...)` - Any of permissions (OR)
+- `RequireAllPermissions(perms...)` - All permissions (AND)
+- `RequireRole(role)` - Role-based check
+
+**Caching:**
+- In-memory cache with 5-minute TTL
+- Auto cleanup expired entries
+- Per-user permission cache
 
 ## License
 
