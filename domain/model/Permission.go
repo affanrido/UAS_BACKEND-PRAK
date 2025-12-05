@@ -1,11 +1,14 @@
 package model
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+)
 
-type Permissions struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Resource    string    `json:"resource"`
-	Action      string    `json:"action"`
-	Description string    `json:"description"`
+// Permission - Tabel permissions (PostgreSQL)
+type Permission struct {
+	ID          uuid.UUID `json:"id" db:"id"`
+	Name        string    `json:"name" db:"name"`
+	Resource    string    `json:"resource" db:"resource"`
+	Action      string    `json:"action" db:"action"`
+	Description string    `json:"description" db:"description"`
 }

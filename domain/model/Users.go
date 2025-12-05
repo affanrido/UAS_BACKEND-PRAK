@@ -1,4 +1,4 @@
-package model 
+package model
 
 import (
 	"time"
@@ -7,23 +7,23 @@ import (
 	"github.com/google/uuid"
 )
 
-// Users struct (Sesuai Prompt)
+// Users - Tabel users (PostgreSQL)
 type Users struct {
-	ID           uuid.UUID `json:"id"`
-	Username     string    `json:"username"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"` // Tidak di-return di JSON
-	FullName     string    `json:"full_name"`
-	RoleID       uuid.UUID `json:"role_id"`
-	ISActive     bool      `json:"is_active"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           uuid.UUID `json:"id" db:"id"`
+	Username     string    `json:"username" db:"username"`
+	Email        string    `json:"email" db:"email"`
+	PasswordHash string    `json:"-" db:"password_hash"`
+	FullName     string    `json:"full_name" db:"full_name"`
+	RoleID       uuid.UUID `json:"role_id" db:"role_id"`
+	IsActive     bool      `json:"is_active" db:"is_active"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 }
 
 // DTO untuk Input Login
 type LoginRequest struct {
-	Identifier string // Bisa Username atau Email
-	Password   string
+	Identifier string `json:"identifier"`
+	Password   string `json:"password"`
 }
 
 // DTO untuk Output Login

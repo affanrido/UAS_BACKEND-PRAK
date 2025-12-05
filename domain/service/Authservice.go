@@ -2,6 +2,7 @@ package service
 
 import (
 	model "UAS_BACKEND/domain/Model"
+	"UAS_BACKEND/domain/repository"
 	"errors"
 	"time"
 
@@ -12,8 +13,15 @@ import (
 type AuthService struct {
 	SecretKey []byte
 	TokenTTL  time.Duration
+	Repo      *repository.AuthRepository
+}
 
-	GetUserByIdentifier func(identifier string) (*model.Users, error)
+func NewAuthService(secretKey string, tokenTTL time.Duration, repo *repository.AuthRepository) *AuthService {
+	return &AuthService{
+		SecretKey: []byte(secretKey),
+		TokenTTL:  tokenTTL,
+		Repo:      repo,
+	}
 }
 
 func HashPassword(password string) (string, error) {
@@ -26,19 +34,33 @@ func CheckPassword(hash, password string) error {
 }
 
 func (a *AuthService) Login(identifier, password string) (*model.LoginResponse, error) {
-	user, err := a.GetUserByIdentifier(identifier)
+	// 1. Validasi kredensial
+	user, err := a.Repo.GetUserByIdentifier(identifier)
 	if err != nil || user == nil {
 		return nil, errors.New("invalid credentials")
 	}
 
+	// 2. Cek password
 	if err := CheckPassword(user.PasswordHash, password); err != nil {
 		return nil, errors.New("invalid credentials")
 	}
 
+	// 3. Cek status aktif user
+	if !user.ISActive {
+		return nil, errors.New("user account is inactive")
+	}
+
+	// 4. Load permissions dari RBAC
+	permissions, err := a.Repo.GetUserPermissions(user.RoleID)
+	if err != nil {
+		permissions = []string{} // fallback jika error
+	}
+
+	// 5. Generate JWT token dengan role dan permissions
 	claims := model.CustomClaims{
 		UserID:      user.ID,
 		RoleID:      user.RoleID,
-		Permissions: []string{}, // nanti dari RBAC
+		Permissions: permissions,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(a.TokenTTL)),
@@ -51,6 +73,7 @@ func (a *AuthService) Login(identifier, password string) (*model.LoginResponse, 
 		return nil, err
 	}
 
+	// 6. Return token dan user profile
 	return &model.LoginResponse{
 		Token: signed,
 		User:  *user,
