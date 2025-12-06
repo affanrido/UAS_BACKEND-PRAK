@@ -15,16 +15,24 @@ import (
 )
 
 func main() {
-	// Load configuration
+	// Load PostgreSQL configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 	defer cfg.DB.Close()
 
+	// Load MongoDB configuration
+	mongoCfg, err := config.LoadMongoConfig()
+	if err != nil {
+		log.Fatalf("Failed to load MongoDB config: %v", err)
+	}
+	defer mongoCfg.Client.Disconnect(context.Background())
+
 	// Initialize repositories
 	authRepo := repository.NewAuthRepository(cfg.DB)
 	rbacRepo := repository.NewRBACRepository(cfg.DB)
+	achievementRepo := repository.NewAchievementRepository(cfg.DB, mongoCfg.Database)
 
 	// Initialize services
 	authService := service.NewAuthService(
@@ -33,6 +41,8 @@ func main() {
 		authRepo,
 	)
 	rbacService := service.NewRBACService(rbacRepo)
+	achievementService := service.NewAchievementService(achievementRepo)
+	fileService := service.NewFileService("./uploads", 10) // Max 10MB per file
 
 	// Initialize middleware
 	rbacMiddleware := middleware.NewRBACMiddleware(authService, rbacService)
@@ -40,6 +50,8 @@ func main() {
 	// Initialize handlers
 	authHandler := route.NewAuthHandler(authService)
 	protectedHandler := route.NewProtectedHandler(rbacMiddleware)
+	achievementHandler := route.NewAchievementHandler(achievementService, rbacMiddleware)
+	fileHandler := route.NewFileHandler(fileService, rbacMiddleware)
 
 	// Setup Fiber app
 	app := fiber.New(fiber.Config{
@@ -52,6 +64,7 @@ func main() {
 				"error": err.Error(),
 			})
 		},
+		BodyLimit: 10 * 1024 * 1024, // 10MB body limit
 	})
 
 	// Global middleware
@@ -61,6 +74,8 @@ func main() {
 	// Setup routes
 	route.SetupAuthRoutes(app, authHandler)
 	route.SetupProtectedRoutes(app, protectedHandler, rbacMiddleware)
+	route.SetupAchievementRoutes(app, achievementHandler, rbacMiddleware)
+	route.SetupFileRoutes(app, fileHandler, rbacMiddleware)
 
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {

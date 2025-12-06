@@ -19,6 +19,15 @@ Backend API untuk sistem autentikasi dengan RBAC (Role-Based Access Control).
 - ✅ Multiple permission strategies (any, all, single)
 - ✅ Role-based access control
 
+### FR-003: Submit Prestasi ✅
+- ✅ Mahasiswa mengisi data prestasi
+- ✅ Upload dokumen pendukung (max 10MB)
+- ✅ Hybrid database (MongoDB + PostgreSQL)
+- ✅ Status awal: 'draft'
+- ✅ Multiple achievement types (competition, publication, organization, certification, academic, other)
+- ✅ Dynamic details per type
+- ✅ File validation & security
+
 ## Tech Stack
 
 - Go 1.24
