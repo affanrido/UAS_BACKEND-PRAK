@@ -33,6 +33,7 @@ func main() {
 	authRepo := repository.NewAuthRepository(cfg.DB)
 	rbacRepo := repository.NewRBACRepository(cfg.DB)
 	achievementRepo := repository.NewAchievementRepository(cfg.DB, mongoCfg.Database)
+	notificationRepo := repository.NewNotificationRepository(cfg.DB)
 
 	// Initialize services
 	authService := service.NewAuthService(
@@ -42,6 +43,7 @@ func main() {
 	)
 	rbacService := service.NewRBACService(rbacRepo)
 	achievementService := service.NewAchievementService(achievementRepo)
+	notificationService := service.NewNotificationService(notificationRepo)
 	fileService := service.NewFileService("./uploads", 10) // Max 10MB per file
 
 	// Initialize middleware
@@ -50,7 +52,8 @@ func main() {
 	// Initialize handlers
 	authHandler := route.NewAuthHandler(authService)
 	protectedHandler := route.NewProtectedHandler(rbacMiddleware)
-	achievementHandler := route.NewAchievementHandler(achievementService, rbacMiddleware)
+	achievementHandler := route.NewAchievementHandler(achievementService, notificationService, rbacMiddleware)
+	notificationHandler := route.NewNotificationHandler(notificationService, rbacMiddleware)
 	fileHandler := route.NewFileHandler(fileService, rbacMiddleware)
 
 	// Setup Fiber app
@@ -75,6 +78,7 @@ func main() {
 	route.SetupAuthRoutes(app, authHandler)
 	route.SetupProtectedRoutes(app, protectedHandler, rbacMiddleware)
 	route.SetupAchievementRoutes(app, achievementHandler, rbacMiddleware)
+	route.SetupNotificationRoutes(app, notificationHandler, rbacMiddleware)
 	route.SetupFileRoutes(app, fileHandler, rbacMiddleware)
 
 	// Health check

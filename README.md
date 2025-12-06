@@ -26,7 +26,7 @@ Backend API untuk sistem autentikasi dengan RBAC (Role-Based Access Control).
 - ✅ Status awal: 'draft'
 - ✅ Multiple achievement types (competition, publication, organization, certification, academic, other)
 - ✅ Dynamic details per type
-- ✅ File validation & security
+- ✅ File validation & securit
 
 ## Tech Stack
 

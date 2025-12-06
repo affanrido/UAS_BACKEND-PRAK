@@ -10,14 +10,16 @@ import (
 )
 
 type AchievementHandler struct {
-	AchievementService *service.AchievementService
-	RBACMiddleware     *middleware.RBACMiddleware
+	AchievementService  *service.AchievementService
+	NotificationService *service.NotificationService
+	RBACMiddleware      *middleware.RBACMiddleware
 }
 
-func NewAchievementHandler(achievementService *service.AchievementService, rbacMiddleware *middleware.RBACMiddleware) *AchievementHandler {
+func NewAchievementHandler(achievementService *service.AchievementService, notificationService *service.NotificationService, rbacMiddleware *middleware.RBACMiddleware) *AchievementHandler {
 	return &AchievementHandler{
-		AchievementService: achievementService,
-		RBACMiddleware:     rbacMiddleware,
+		AchievementService:  achievementService,
+		NotificationService: notificationService,
+		RBACMiddleware:      rbacMiddleware,
 	}
 }
 
@@ -109,6 +111,50 @@ func (h *AchievementHandler) GetAchievementByID(c *fiber.Ctx) error {
 	})
 }
 
+// SubmitForVerification - Handler untuk submit prestasi untuk verifikasi (FR-004)
+func (h *AchievementHandler) SubmitForVerification(c *fiber.Ctx) error {
+	// Get user ID dari context
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	// Parse request body
+	var req service.SubmitForVerificationRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Validate reference_id
+	if req.ReferenceID == uuid.Nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "reference_id is required",
+		})
+	}
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Submit for verification
+	response, err := h.AchievementService.SubmitForVerification(ctx, userID, req.ReferenceID, h.NotificationService)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Return success response
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": response.Message,
+		"data":    response,
+	})
+}
+
 // SetupAchievementRoutes - Setup routes untuk achievement
 func SetupAchievementRoutes(app *fiber.App, handler *AchievementHandler, rbac *middleware.RBACMiddleware) {
 	api := app.Group("/api")
@@ -132,6 +178,12 @@ func SetupAchievementRoutes(app *fiber.App, handler *AchievementHandler, rbac *m
 		achievements.Get("/:id",
 			rbac.RequirePermission("achievement.read"),
 			handler.GetAchievementByID,
+		)
+
+		// Submit for verification - mahasiswa submit prestasi draft untuk verifikasi
+		achievements.Post("/submit-verification",
+			rbac.RequirePermission("achievement.write"),
+			handler.SubmitForVerification,
 		)
 	}
 }

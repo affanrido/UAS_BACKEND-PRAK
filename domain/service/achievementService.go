@@ -257,3 +257,85 @@ func (s *AchievementService) GetAchievementByID(ctx context.Context, mongoID str
 
 	return s.Repo.GetAchievementByID(ctx, objectID)
 }
+
+// SubmitForVerificationRequest - DTO untuk submit verifikasi
+type SubmitForVerificationRequest struct {
+	ReferenceID uuid.UUID `json:"reference_id"`
+}
+
+// SubmitForVerificationResponse - DTO untuk response
+type SubmitForVerificationResponse struct {
+	ReferenceID uuid.UUID  `json:"reference_id"`
+	Status      string     `json:"status"`
+	SubmittedAt time.Time  `json:"submitted_at"`
+	Message     string     `json:"message"`
+}
+
+// SubmitForVerification - Flow FR-004: Submit untuk Verifikasi
+func (s *AchievementService) SubmitForVerification(ctx context.Context, userID uuid.UUID, referenceID uuid.UUID, notificationService *NotificationService) (*SubmitForVerificationResponse, error) {
+	// Validasi: User harus mahasiswa
+	student, err := s.Repo.GetStudentByUserID(userID)
+	if err != nil {
+		return nil, errors.New("user is not a student")
+	}
+
+	// 1. Get achievement reference
+	reference, err := s.Repo.GetAchievementReferenceByID(referenceID)
+	if err != nil {
+		return nil, errors.New("achievement reference not found")
+	}
+
+	// Validasi: Reference harus milik mahasiswa ini
+	if reference.StudentID != student.ID {
+		return nil, errors.New("unauthorized: achievement does not belong to you")
+	}
+
+	// Precondition: Prestasi berstatus 'draft'
+	if reference.Status != "draft" {
+		return nil, errors.New("achievement must be in 'draft' status to submit for verification")
+	}
+
+	// Get achievement detail dari MongoDB
+	achievement, err := s.GetAchievementByID(ctx, reference.MongoAchievementID)
+	if err != nil {
+		return nil, errors.New("achievement not found in MongoDB")
+	}
+
+	// 2. Update status menjadi 'submitted'
+	now := time.Now()
+	err = s.Repo.UpdateAchievementReferenceStatus(referenceID, "submitted", nil, nil)
+	if err != nil {
+		return nil, errors.New("failed to update status: " + err.Error())
+	}
+
+	// Update submitted_at
+	reference.Status = "submitted"
+	reference.SubmittedAt = &now
+
+	// 3. Create notification untuk dosen wali
+	if notificationService != nil {
+		// Get student user info untuk nama
+		studentUser, err := s.Repo.GetUserByID(student.UserID)
+		if err == nil && studentUser != nil {
+			// Get advisor user_id
+			advisorInfo, err := s.Repo.GetLecturerByID(student.AdvisorID)
+			if err == nil && advisorInfo != nil {
+				// Create notification
+				_ = notificationService.CreateAchievementSubmittedNotification(
+					advisorInfo.UserID,
+					studentUser.FullName,
+					achievement.Title,
+					referenceID,
+				)
+			}
+		}
+	}
+
+	// 4. Return updated status
+	return &SubmitForVerificationResponse{
+		ReferenceID: referenceID,
+		Status:      "submitted",
+		SubmittedAt: now,
+		Message:     "Achievement submitted for verification successfully",
+	}, nil
+}

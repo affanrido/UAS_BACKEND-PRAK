@@ -252,3 +252,61 @@ func (r *AchievementRepository) GetStudentByUserID(userID uuid.UUID) (*model.Stu
 
 	return &student, nil
 }
+
+// GetUserByID - Ambil data user berdasarkan ID
+func (r *AchievementRepository) GetUserByID(userID uuid.UUID) (*model.Users, error) {
+	query := `
+		SELECT id, username, email, password_hash, full_name, role_id, is_active, created_at, updated_at
+		FROM users
+		WHERE id = $1
+	`
+
+	var user model.Users
+	err := r.DB.QueryRow(query, userID).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.PasswordHash,
+		&user.FullName,
+		&user.RoleID,
+		&user.IsActive,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
+
+// GetLecturerByID - Ambil data lecturer berdasarkan ID
+func (r *AchievementRepository) GetLecturerByID(lecturerID uuid.UUID) (*model.Lecturer, error) {
+	query := `
+		SELECT id, user_id, lecturer_id, department, created_at
+		FROM lecturers
+		WHERE id = $1
+	`
+
+	var lecturer model.Lecturer
+	err := r.DB.QueryRow(query, lecturerID).Scan(
+		&lecturer.ID,
+		&lecturer.UserID,
+		&lecturer.LecturerID,
+		&lecturer.Department,
+		&lecturer.CreatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("lecturer not found")
+		}
+		return nil, err
+	}
+
+	return &lecturer, nil
+}
