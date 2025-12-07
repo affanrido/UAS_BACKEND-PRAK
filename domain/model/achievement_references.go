@@ -16,6 +16,8 @@ type AchievementReference struct {
 	VerifiedAt         *time.Time `json:"verified_at" db:"verified_at"`
 	VerifiedBy         *uuid.UUID `json:"verified_by" db:"verified_by"`
 	RejectionNote      *string    `json:"rejection_note" db:"rejection_note"`
+	IsDeleted          bool       `json:"is_deleted" db:"is_deleted"`     // Soft delete flag
+	DeletedAt          *time.Time `json:"deleted_at" db:"deleted_at"`     // Soft delete timestamp
 	CreatedAt          time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at" db:"updated_at"`
 }

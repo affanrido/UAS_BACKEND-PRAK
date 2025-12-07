@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 type AchievementHandler struct {
@@ -155,6 +156,44 @@ func (h *AchievementHandler) SubmitForVerification(c *fiber.Ctx) error {
 	})
 }
 
+// DeleteAchievement - Handler untuk hapus prestasi draft (FR-005)
+func (h *AchievementHandler) DeleteAchievement(c *fiber.Ctx) error {
+	// Get user ID dari context
+	userID, err := middleware.GetUserID(c)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	// Get reference_id from URL parameter
+	referenceIDStr := c.Params("id")
+	referenceID, err := uuid.Parse(referenceIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid reference ID",
+		})
+	}
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Delete achievement
+	response, err := h.AchievementService.DeleteAchievement(ctx, userID, referenceID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	// Return success response
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": response.Message,
+		"data":    response,
+	})
+}
+
 // SetupAchievementRoutes - Setup routes untuk achievement
 func SetupAchievementRoutes(app *fiber.App, handler *AchievementHandler, rbac *middleware.RBACMiddleware) {
 	api := app.Group("/api")
@@ -184,6 +223,12 @@ func SetupAchievementRoutes(app *fiber.App, handler *AchievementHandler, rbac *m
 		achievements.Post("/submit-verification",
 			rbac.RequirePermission("achievement.write"),
 			handler.SubmitForVerification,
+		)
+
+		// Delete achievement - mahasiswa hapus prestasi draft
+		achievements.Delete("/:id",
+			rbac.RequirePermission("achievement.write"),
+			handler.DeleteAchievement,
 		)
 	}
 }

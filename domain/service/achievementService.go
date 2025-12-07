@@ -339,3 +339,71 @@ func (s *AchievementService) SubmitForVerification(ctx context.Context, userID u
 		Message:     "Achievement submitted for verification successfully",
 	}, nil
 }
+
+// DeleteAchievementRequest - DTO untuk delete achievement
+type DeleteAchievementRequest struct {
+	ReferenceID uuid.UUID `json:"reference_id"`
+}
+
+// DeleteAchievementResponse - DTO untuk response
+type DeleteAchievementResponse struct {
+	ReferenceID uuid.UUID `json:"reference_id"`
+	Message     string    `json:"message"`
+	DeletedAt   time.Time `json:"deleted_at"`
+}
+
+// DeleteAchievement - Flow FR-005: Hapus Prestasi
+func (s *AchievementService) DeleteAchievement(ctx context.Context, userID uuid.UUID, referenceID uuid.UUID) (*DeleteAchievementResponse, error) {
+	// Validasi: User harus mahasiswa
+	student, err := s.Repo.GetStudentByUserID(userID)
+	if err != nil {
+		return nil, errors.New("user is not a student")
+	}
+
+	// Get achievement reference
+	reference, err := s.Repo.GetAchievementReferenceByID(referenceID)
+	if err != nil {
+		return nil, errors.New("achievement reference not found")
+	}
+
+	// Validasi: Reference harus milik mahasiswa ini
+	if reference.StudentID != student.ID {
+		return nil, errors.New("unauthorized: achievement does not belong to you")
+	}
+
+	// Precondition: Prestasi berstatus 'draft'
+	if reference.Status != "draft" {
+		return nil, errors.New("only draft achievements can be deleted")
+	}
+
+	// Validasi: Belum dihapus sebelumnya
+	if reference.IsDeleted {
+		return nil, errors.New("achievement already deleted")
+	}
+
+	// Parse MongoDB ObjectID
+	mongoID, err := primitive.ObjectIDFromHex(reference.MongoAchievementID)
+	if err != nil {
+		return nil, errors.New("invalid mongo achievement ID")
+	}
+
+	// 1. Soft delete data di MongoDB
+	err = s.Repo.SoftDeleteAchievement(ctx, mongoID)
+	if err != nil {
+		return nil, errors.New("failed to delete achievement in MongoDB: " + err.Error())
+	}
+
+	// 2. Update reference di PostgreSQL (soft delete)
+	err = s.Repo.SoftDeleteAchievementReference(referenceID)
+	if err != nil {
+		return nil, errors.New("failed to delete achievement reference in PostgreSQL: " + err.Error())
+	}
+
+	// 3. Return success message
+	now := time.Now()
+	return &DeleteAchievementResponse{
+		ReferenceID: referenceID,
+		Message:     "Achievement deleted successfully",
+		DeletedAt:   now,
+	}, nil
+}

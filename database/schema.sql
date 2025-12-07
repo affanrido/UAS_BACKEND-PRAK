@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS achievement_references (
     verified_at TIMESTAMP,
     verified_by UUID REFERENCES users(id),
     rejection_note TEXT,
+    is_deleted BOOLEAN DEFAULT false,
+    deleted_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -100,6 +102,7 @@ CREATE INDEX IF NOT EXISTS idx_lecturers_lecturer_id ON lecturers(lecturer_id);
 CREATE INDEX IF NOT EXISTS idx_achievement_references_student_id ON achievement_references(student_id);
 CREATE INDEX IF NOT EXISTS idx_achievement_references_mongo_id ON achievement_references(mongo_achievement_id);
 CREATE INDEX IF NOT EXISTS idx_achievement_references_status ON achievement_references(status);
+CREATE INDEX IF NOT EXISTS idx_achievement_references_is_deleted ON achievement_references(is_deleted);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id ON role_permissions(role_id);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_permission_id ON role_permissions(permission_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);

@@ -262,7 +262,7 @@ func (r *AchievementRepository) GetUserByID(userID uuid.UUID) (*model.Users, err
 	`
 
 	var user model.Users
-	err := r.DB.QueryRow(query, userID).Scan(
+	err := r.PostgresDB.QueryRow(query, userID).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
@@ -293,7 +293,7 @@ func (r *AchievementRepository) GetLecturerByID(lecturerID uuid.UUID) (*model.Le
 	`
 
 	var lecturer model.Lecturer
-	err := r.DB.QueryRow(query, lecturerID).Scan(
+	err := r.PostgresDB.QueryRow(query, lecturerID).Scan(
 		&lecturer.ID,
 		&lecturer.UserID,
 		&lecturer.LecturerID,
@@ -309,4 +309,67 @@ func (r *AchievementRepository) GetLecturerByID(lecturerID uuid.UUID) (*model.Le
 	}
 
 	return &lecturer, nil
+}
+
+// SoftDeleteAchievement - Soft delete achievement di MongoDB
+func (r *AchievementRepository) SoftDeleteAchievement(ctx context.Context, id primitive.ObjectID) error {
+	collection := r.MongoDB.Collection("achievements")
+
+	now := time.Now()
+	update := bson.M{
+		"$set": bson.M{
+			"isDeleted": true,
+			"deletedAt": now,
+			"updatedAt": now,
+		},
+	}
+
+	result, err := collection.UpdateOne(ctx, bson.M{"_id": id}, update)
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return errors.New("achievement not found")
+	}
+
+	return nil
+}
+
+// SoftDeleteAchievementReference - Soft delete reference di PostgreSQL
+func (r *AchievementRepository) SoftDeleteAchievementReference(id uuid.UUID) error {
+	query := `
+		UPDATE achievement_references
+		SET is_deleted = true,
+		    deleted_at = $1,
+		    updated_at = $2
+		WHERE id = $3
+	`
+
+	now := time.Now()
+	_, err := r.PostgresDB.Exec(query, now, now, id)
+	return err
+}
+
+// HardDeleteAchievement - Hard delete achievement di MongoDB (untuk cleanup)
+func (r *AchievementRepository) HardDeleteAchievement(ctx context.Context, id primitive.ObjectID) error {
+	collection := r.MongoDB.Collection("achievements")
+
+	result, err := collection.DeleteOne(ctx, bson.M{"_id": id})
+	if err != nil {
+		return err
+	}
+
+	if result.DeletedCount == 0 {
+		return errors.New("achievement not found")
+	}
+
+	return nil
+}
+
+// HardDeleteAchievementReference - Hard delete reference di PostgreSQL (untuk cleanup)
+func (r *AchievementRepository) HardDeleteAchievementReference(id uuid.UUID) error {
+	query := `DELETE FROM achievement_references WHERE id = $1`
+	_, err := r.PostgresDB.Exec(query, id)
+	return err
 }

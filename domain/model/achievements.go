@@ -19,6 +19,8 @@ type Achievement struct {
 	Attachments    []Attachment       `json:"attachments" bson:"attachments"`
 	Tags           []string           `json:"tags" bson:"tags"`
 	Points         float64            `json:"points" bson:"points"`
+	IsDeleted      bool               `json:"isDeleted" bson:"isDeleted"`           // Soft delete flag
+	DeletedAt      *time.Time         `json:"deletedAt,omitempty" bson:"deletedAt,omitempty"` // Soft delete timestamp
 	CreatedAt      time.Time          `json:"createdAt" bson:"createdAt"`
 	UpdatedAt      time.Time          `json:"updatedAt" bson:"updatedAt"`
 }
