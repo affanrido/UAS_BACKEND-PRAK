@@ -373,3 +373,158 @@ func (r *AchievementRepository) HardDeleteAchievementReference(id uuid.UUID) err
 	_, err := r.PostgresDB.Exec(query, id)
 	return err
 }
+
+// GetStudentsByAdvisorID - Ambil semua mahasiswa bimbingan berdasarkan advisor_id
+func (r *AchievementRepository) GetStudentsByAdvisorID(advisorID uuid.UUID) ([]model.Student, error) {
+	query := `
+		SELECT id, user_id, student_id, program_study, academic_year, advisor_id, created_at
+		FROM students
+		WHERE advisor_id = $1
+		ORDER BY created_at DESC
+	`
+
+	rows, err := r.PostgresDB.Query(query, advisorID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var students []model.Student
+	for rows.Next() {
+		var student model.Student
+		err := rows.Scan(
+			&student.ID,
+			&student.UserID,
+			&student.StudentID,
+			&student.ProgramStudy,
+			&student.AcademicYear,
+			&student.AdvisorID,
+			&student.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		students = append(students, student)
+	}
+
+	return students, nil
+}
+
+// GetAchievementReferencesByStudentIDs - Ambil achievement references berdasarkan student_ids dengan pagination
+func (r *AchievementRepository) GetAchievementReferencesByStudentIDs(studentIDs []uuid.UUID, limit, offset int) ([]model.AchievementReference, error) {
+	if len(studentIDs) == 0 {
+		return []model.AchievementReference{}, nil
+	}
+
+	query := `
+		SELECT id, student_id, mongo_achievement_id, status, 
+		       submitted_at, verified_at, verified_by, rejection_note,
+		       is_deleted, deleted_at, created_at, updated_at
+		FROM achievement_references
+		WHERE student_id = ANY($1) AND is_deleted = false
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.PostgresDB.Query(query, studentIDs, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var references []model.AchievementReference
+	for rows.Next() {
+		var ref model.AchievementReference
+		err := rows.Scan(
+			&ref.ID,
+			&ref.StudentID,
+			&ref.MongoAchievementID,
+			&ref.Status,
+			&ref.SubmittedAt,
+			&ref.VerifiedAt,
+			&ref.VerifiedBy,
+			&ref.RejectionNote,
+			&ref.IsDeleted,
+			&ref.DeletedAt,
+			&ref.CreatedAt,
+			&ref.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		references = append(references, ref)
+	}
+
+	return references, nil
+}
+
+// CountAchievementReferencesByStudentIDs - Hitung total achievement references berdasarkan student_ids
+func (r *AchievementRepository) CountAchievementReferencesByStudentIDs(studentIDs []uuid.UUID) (int, error) {
+	if len(studentIDs) == 0 {
+		return 0, nil
+	}
+
+	query := `
+		SELECT COUNT(*)
+		FROM achievement_references
+		WHERE student_id = ANY($1) AND is_deleted = false
+	`
+
+	var count int
+	err := r.PostgresDB.QueryRow(query, studentIDs).Scan(&count)
+	return count, err
+}
+
+// GetAchievementsByIDs - Ambil multiple achievements dari MongoDB berdasarkan IDs
+func (r *AchievementRepository) GetAchievementsByIDs(ctx context.Context, ids []primitive.ObjectID) ([]model.Achievement, error) {
+	if len(ids) == 0 {
+		return []model.Achievement{}, nil
+	}
+
+	collection := r.MongoDB.Collection("achievements")
+
+	filter := bson.M{
+		"_id": bson.M{"$in": ids},
+		"isDeleted": false,
+	}
+
+	cursor, err := collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var achievements []model.Achievement
+	if err := cursor.All(ctx, &achievements); err != nil {
+		return nil, err
+	}
+
+	return achievements, nil
+}
+
+// GetLecturerByUserID - Ambil data lecturer berdasarkan user_id
+func (r *AchievementRepository) GetLecturerByUserID(userID uuid.UUID) (*model.Lecturer, error) {
+	query := `
+		SELECT id, user_id, lecturer_id, department, created_at
+		FROM lecturers
+		WHERE user_id = $1
+	`
+
+	var lecturer model.Lecturer
+	err := r.PostgresDB.QueryRow(query, userID).Scan(
+		&lecturer.ID,
+		&lecturer.UserID,
+		&lecturer.LecturerID,
+		&lecturer.Department,
+		&lecturer.CreatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("lecturer not found")
+		}
+		return nil, err
+	}
+
+	return &lecturer, nil
+}

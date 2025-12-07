@@ -407,3 +407,156 @@ func (s *AchievementService) DeleteAchievement(ctx context.Context, userID uuid.
 		DeletedAt:   now,
 	}, nil
 }
+
+// AdvisedStudentAchievement - DTO untuk prestasi mahasiswa bimbingan
+type AdvisedStudentAchievement struct {
+	Reference   model.AchievementReference `json:"reference"`
+	Achievement *model.Achievement         `json:"achievement"`
+	Student     *StudentInfo               `json:"student"`
+}
+
+// StudentInfo - DTO untuk info mahasiswa
+type StudentInfo struct {
+	ID           uuid.UUID `json:"id"`
+	StudentID    string    `json:"student_id"`
+	FullName     string    `json:"full_name"`
+	ProgramStudy string    `json:"program_study"`
+	AcademicYear string    `json:"academic_year"`
+}
+
+// ViewAdvisedStudentsAchievementsResponse - DTO untuk response
+type ViewAdvisedStudentsAchievementsResponse struct {
+	Achievements []AdvisedStudentAchievement `json:"achievements"`
+	Pagination   model.PaginationResponse    `json:"pagination"`
+}
+
+// ViewAdvisedStudentsAchievements - Flow FR-006: View Prestasi Mahasiswa Bimbingan
+func (s *AchievementService) ViewAdvisedStudentsAchievements(ctx context.Context, userID uuid.UUID, pagination model.PaginationRequest) (*ViewAdvisedStudentsAchievementsResponse, error) {
+	// Validasi: User harus dosen/lecturer
+	lecturer, err := s.Repo.GetLecturerByUserID(userID)
+	if err != nil {
+		return nil, errors.New("user is not a lecturer")
+	}
+
+	// 1. Get list student IDs dari tabel students where advisor_id
+	students, err := s.Repo.GetStudentsByAdvisorID(lecturer.ID)
+	if err != nil {
+		return nil, errors.New("failed to get advised students: " + err.Error())
+	}
+
+	// Jika tidak ada mahasiswa bimbingan
+	if len(students) == 0 {
+		return &ViewAdvisedStudentsAchievementsResponse{
+			Achievements: []AdvisedStudentAchievement{},
+			Pagination: model.PaginationResponse{
+				Page:       pagination.Page,
+				PageSize:   pagination.PageSize,
+				TotalItems: 0,
+				TotalPages: 0,
+			},
+		}, nil
+	}
+
+	// Extract student IDs
+	studentIDs := make([]uuid.UUID, len(students))
+	studentMap := make(map[uuid.UUID]model.Student)
+	for i, student := range students {
+		studentIDs[i] = student.ID
+		studentMap[student.ID] = student
+	}
+
+	// Count total achievements
+	totalItems, err := s.Repo.CountAchievementReferencesByStudentIDs(studentIDs)
+	if err != nil {
+		return nil, errors.New("failed to count achievements: " + err.Error())
+	}
+
+	// 2. Get achievements references dengan filter student_ids (dengan pagination)
+	references, err := s.Repo.GetAchievementReferencesByStudentIDs(
+		studentIDs,
+		pagination.GetLimit(),
+		pagination.GetOffset(),
+	)
+	if err != nil {
+		return nil, errors.New("failed to get achievement references: " + err.Error())
+	}
+
+	// Jika tidak ada prestasi
+	if len(references) == 0 {
+		return &ViewAdvisedStudentsAchievementsResponse{
+			Achievements: []AdvisedStudentAchievement{},
+			Pagination: model.PaginationResponse{
+				Page:       pagination.Page,
+				PageSize:   pagination.PageSize,
+				TotalItems: totalItems,
+				TotalPages: model.CalculateTotalPages(totalItems, pagination.PageSize),
+			},
+		}, nil
+	}
+
+	// Extract MongoDB IDs
+	mongoIDs := make([]primitive.ObjectID, 0, len(references))
+	for _, ref := range references {
+		mongoID, err := primitive.ObjectIDFromHex(ref.MongoAchievementID)
+		if err == nil {
+			mongoIDs = append(mongoIDs, mongoID)
+		}
+	}
+
+	// 3. Fetch detail dari MongoDB
+	achievements, err := s.Repo.GetAchievementsByIDs(ctx, mongoIDs)
+	if err != nil {
+		return nil, errors.New("failed to get achievements from MongoDB: " + err.Error())
+	}
+
+	// Create achievement map for quick lookup
+	achievementMap := make(map[string]*model.Achievement)
+	for i := range achievements {
+		achievementMap[achievements[i].ID.Hex()] = &achievements[i]
+	}
+
+	// Get user info for students
+	userMap := make(map[uuid.UUID]*model.Users)
+	for _, student := range students {
+		user, err := s.Repo.GetUserByID(student.UserID)
+		if err == nil {
+			userMap[student.ID] = user
+		}
+	}
+
+	// Combine data
+	result := make([]AdvisedStudentAchievement, 0, len(references))
+	for _, ref := range references {
+		achievement := achievementMap[ref.MongoAchievementID]
+		student := studentMap[ref.StudentID]
+		user := userMap[ref.StudentID]
+
+		var studentInfo *StudentInfo
+		if user != nil {
+			studentInfo = &StudentInfo{
+				ID:           student.ID,
+				StudentID:    student.StudentID,
+				FullName:     user.FullName,
+				ProgramStudy: student.ProgramStudy,
+				AcademicYear: student.AcademicYear,
+			}
+		}
+
+		result = append(result, AdvisedStudentAchievement{
+			Reference:   ref,
+			Achievement: achievement,
+			Student:     studentInfo,
+		})
+	}
+
+	// 4. Return list dengan pagination
+	return &ViewAdvisedStudentsAchievementsResponse{
+		Achievements: result,
+		Pagination: model.PaginationResponse{
+			Page:       pagination.Page,
+			PageSize:   pagination.PageSize,
+			TotalItems: totalItems,
+			TotalPages: model.CalculateTotalPages(totalItems, pagination.PageSize),
+		},
+	}, nil
+}

@@ -55,6 +55,7 @@ func main() {
 	protectedHandler := route.NewProtectedHandler(rbacMiddleware)
 	achievementHandler := route.NewAchievementHandler(achievementService, notificationService, rbacMiddleware)
 	notificationHandler := route.NewNotificationHandler(notificationService, rbacMiddleware)
+	lecturerHandler := route.NewLecturerHandler(achievementService, rbacMiddleware)
 	fileHandler := route.NewFileHandler(fileService, rbacMiddleware)
 
 	// Setup Fiber app
@@ -80,6 +81,7 @@ func main() {
 	route.SetupProtectedRoutes(app, protectedHandler, rbacMiddleware)
 	route.SetupAchievementRoutes(app, achievementHandler, rbacMiddleware)
 	route.SetupNotificationRoutes(app, notificationHandler, rbacMiddleware)
+	route.SetupLecturerRoutes(app, lecturerHandler, rbacMiddleware)
 	route.SetupFileRoutes(app, fileHandler, rbacMiddleware)
 
 	// Health check

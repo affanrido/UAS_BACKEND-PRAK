@@ -26,7 +26,28 @@ Backend API untuk sistem autentikasi dengan RBAC (Role-Based Access Control).
 - ✅ Status awal: 'draft'
 - ✅ Multiple achievement types (competition, publication, organization, certification, academic, other)
 - ✅ Dynamic details per type
-- ✅ File validation & securit
+- ✅ File validation & security
+
+### FR-004: Submit untuk Verifikasi ✅
+- ✅ Mahasiswa submit prestasi draft
+- ✅ Update status menjadi 'submitted'
+- ✅ Create notification untuk dosen wali
+- ✅ Return updated status
+- ✅ In-app notification system
+
+### FR-005: Hapus Prestasi ✅
+- ✅ Soft delete data di MongoDB
+- ✅ Update reference di PostgreSQL
+- ✅ Only draft status can be deleted
+- ✅ Ownership validation
+- ✅ Return success message
+
+### FR-006: View Prestasi Mahasiswa Bimbingan ✅
+- ✅ Get list student IDs dari tabel students where advisor_id
+- ✅ Get achievements references dengan filter student_ids
+- ✅ Fetch detail dari MongoDB
+- ✅ Return list dengan pagination
+- ✅ Combined data (reference + achievement + student info)
 
 ## Tech Stack
 
