@@ -49,6 +49,14 @@ Backend API untuk sistem autentikasi dengan RBAC (Role-Based Access Control).
 - ✅ Return list dengan pagination
 - ✅ Combined data (reference + achievement + student info)
 
+### FR-007: Verify Prestasi ✅
+- ✅ Dosen review prestasi detail
+- ✅ Dosen approve/reject prestasi
+- ✅ Update status menjadi 'verified' atau 'rejected'
+- ✅ Set verified_by dan verified_at
+- ✅ Return updated status
+- ✅ Notification untuk mahasiswa
+
 ## Tech Stack
 
 - Go 1.24

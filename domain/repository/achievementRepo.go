@@ -528,3 +528,32 @@ func (r *AchievementRepository) GetLecturerByUserID(userID uuid.UUID) (*model.Le
 
 	return &lecturer, nil
 }
+
+// GetStudentByID - Ambil data student berdasarkan ID
+func (r *AchievementRepository) GetStudentByID(studentID uuid.UUID) (*model.Student, error) {
+	query := `
+		SELECT id, user_id, student_id, program_study, academic_year, advisor_id, created_at
+		FROM students
+		WHERE id = $1
+	`
+
+	var student model.Student
+	err := r.PostgresDB.QueryRow(query, studentID).Scan(
+		&student.ID,
+		&student.UserID,
+		&student.StudentID,
+		&student.ProgramStudy,
+		&student.AcademicYear,
+		&student.AdvisorID,
+		&student.CreatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("student not found")
+		}
+		return nil, err
+	}
+
+	return &student, nil
+}

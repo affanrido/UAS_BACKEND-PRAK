@@ -430,6 +430,122 @@ type ViewAdvisedStudentsAchievementsResponse struct {
 	Pagination   model.PaginationResponse    `json:"pagination"`
 }
 
+// VerifyAchievementRequest - DTO untuk verify achievement
+type VerifyAchievementRequest struct {
+	ReferenceID uuid.UUID `json:"reference_id"`
+	Approved    bool      `json:"approved"` // true = verified, false = rejected
+	Note        string    `json:"note,omitempty"`
+}
+
+// VerifyAchievementResponse - DTO untuk response
+type VerifyAchievementResponse struct {
+	ReferenceID uuid.UUID  `json:"reference_id"`
+	Status      string     `json:"status"`
+	VerifiedBy  uuid.UUID  `json:"verified_by"`
+	VerifiedAt  time.Time  `json:"verified_at"`
+	Note        *string    `json:"note,omitempty"`
+	Message     string     `json:"message"`
+}
+
+// VerifyAchievement - Flow FR-007: Verify Prestasi
+func (s *AchievementService) VerifyAchievement(ctx context.Context, userID uuid.UUID, referenceID uuid.UUID, approved bool, note string, notificationService *NotificationService) (*VerifyAchievementResponse, error) {
+	// Validasi: User harus dosen/lecturer
+	lecturer, err := s.Repo.GetLecturerByUserID(userID)
+	if err != nil {
+		return nil, errors.New("user is not a lecturer")
+	}
+
+	// 1. Get achievement reference
+	reference, err := s.Repo.GetAchievementReferenceByID(referenceID)
+	if err != nil {
+		return nil, errors.New("achievement reference not found")
+	}
+
+	// Precondition: Prestasi berstatus 'submitted'
+	if reference.Status != "submitted" {
+		return nil, errors.New("achievement must be in 'submitted' status to verify")
+	}
+
+	// Get student info untuk validasi advisor
+	student, err := s.Repo.GetStudentByID(reference.StudentID)
+	if err != nil {
+		return nil, errors.New("student not found")
+	}
+
+	// Validasi: Hanya dosen wali yang bisa verify
+	if student.AdvisorID != lecturer.ID {
+		return nil, errors.New("unauthorized: you are not the advisor of this student")
+	}
+
+	// Get achievement detail dari MongoDB
+	achievement, err := s.GetAchievementByID(ctx, reference.MongoAchievementID)
+	if err != nil {
+		return nil, errors.New("achievement not found in MongoDB")
+	}
+
+	// 2. Dosen approve/reject prestasi
+	var newStatus string
+	var rejectionNote *string
+	if approved {
+		newStatus = "verified"
+		rejectionNote = nil
+	} else {
+		newStatus = "rejected"
+		if note != "" {
+			rejectionNote = &note
+		}
+	}
+
+	// 3. Update status menjadi 'verified' atau 'rejected'
+	// 4. Set verified_by dan verified_at
+	now := time.Now()
+	err = s.Repo.UpdateAchievementReferenceStatus(referenceID, newStatus, &lecturer.ID, rejectionNote)
+	if err != nil {
+		return nil, errors.New("failed to update status: " + err.Error())
+	}
+
+	// Create notification untuk mahasiswa
+	if notificationService != nil {
+		studentUser, err := s.Repo.GetUserByID(student.UserID)
+		if err == nil && studentUser != nil {
+			lecturerUser, err := s.Repo.GetUserByID(lecturer.UserID)
+			if err == nil && lecturerUser != nil {
+				if approved {
+					_ = notificationService.CreateAchievementVerifiedNotification(
+						student.UserID,
+						lecturerUser.FullName,
+						achievement.Title,
+						referenceID,
+					)
+				} else {
+					_ = notificationService.CreateAchievementRejectedNotification(
+						student.UserID,
+						lecturerUser.FullName,
+						achievement.Title,
+						referenceID,
+						note,
+					)
+				}
+			}
+		}
+	}
+
+	// 5. Return updated status
+	message := "Achievement verified successfully"
+	if !approved {
+		message = "Achievement rejected"
+	}
+
+	return &VerifyAchievementResponse{
+		ReferenceID: referenceID,
+		Status:      newStatus,
+		VerifiedBy:  lecturer.ID,
+		VerifiedAt:  now,
+		Note:        rejectionNote,
+		Message:     message,
+	}, nil
+}
+
 // ViewAdvisedStudentsAchievements - Flow FR-006: View Prestasi Mahasiswa Bimbingan
 func (s *AchievementService) ViewAdvisedStudentsAchievements(ctx context.Context, userID uuid.UUID, pagination model.PaginationRequest) (*ViewAdvisedStudentsAchievementsResponse, error) {
 	// Validasi: User harus dosen/lecturer

@@ -30,12 +30,12 @@ func (s *NotificationService) CreateAchievementSubmittedNotification(advisorID u
 }
 
 // CreateAchievementVerifiedNotification - Buat notifikasi untuk mahasiswa saat prestasi diverifikasi
-func (s *NotificationService) CreateAchievementVerifiedNotification(studentUserID uuid.UUID, achievementTitle string, referenceID uuid.UUID) error {
+func (s *NotificationService) CreateAchievementVerifiedNotification(studentUserID uuid.UUID, lecturerName, achievementTitle string, referenceID uuid.UUID) error {
 	notification := &model.Notification{
 		UserID:    studentUserID,
 		Type:      "achievement_verified",
 		Title:     "Prestasi Diverifikasi",
-		Message:   fmt.Sprintf("Prestasi Anda '%s' telah diverifikasi dan disetujui.", achievementTitle),
+		Message:   fmt.Sprintf("Prestasi Anda '%s' telah diverifikasi dan disetujui oleh %s.", achievementTitle, lecturerName),
 		RelatedID: &referenceID,
 	}
 
@@ -43,12 +43,17 @@ func (s *NotificationService) CreateAchievementVerifiedNotification(studentUserI
 }
 
 // CreateAchievementRejectedNotification - Buat notifikasi untuk mahasiswa saat prestasi ditolak
-func (s *NotificationService) CreateAchievementRejectedNotification(studentUserID uuid.UUID, achievementTitle string, rejectionNote string, referenceID uuid.UUID) error {
+func (s *NotificationService) CreateAchievementRejectedNotification(studentUserID uuid.UUID, lecturerName, achievementTitle string, referenceID uuid.UUID, rejectionNote string) error {
+	message := fmt.Sprintf("Prestasi Anda '%s' ditolak oleh %s.", achievementTitle, lecturerName)
+	if rejectionNote != "" {
+		message += fmt.Sprintf(" Alasan: %s", rejectionNote)
+	}
+
 	notification := &model.Notification{
 		UserID:    studentUserID,
 		Type:      "achievement_rejected",
 		Title:     "Prestasi Ditolak",
-		Message:   fmt.Sprintf("Prestasi Anda '%s' ditolak. Alasan: %s", achievementTitle, rejectionNote),
+		Message:   message,
 		RelatedID: &referenceID,
 	}
 
