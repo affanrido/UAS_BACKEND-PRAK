@@ -35,6 +35,7 @@ func main() {
 	rbacRepo := repository.NewRBACRepository(cfg.DB)
 	achievementRepo := repository.NewAchievementRepository(cfg.DB, mongoCfg.Database)
 	notificationRepo := repository.NewNotificationRepository(cfg.DB)
+	userRepo := repository.NewUserRepository(cfg.DB)
 
 	// Initialize services
 	authService := service.NewAuthService(
@@ -46,6 +47,7 @@ func main() {
 	achievementService := service.NewAchievementService(achievementRepo)
 	notificationService := service.NewNotificationService(notificationRepo)
 	fileService := service.NewFileService("./uploads", 10) // Max 10MB per file
+	userService := service.NewUserService(userRepo)
 
 	// Initialize middleware
 	rbacMiddleware := middleware.NewRBACMiddleware(authService, rbacService)
@@ -57,6 +59,7 @@ func main() {
 	notificationHandler := route.NewNotificationHandler(notificationService, rbacMiddleware)
 	lecturerHandler := route.NewLecturerHandler(achievementService, notificationService, rbacMiddleware)
 	fileHandler := route.NewFileHandler(fileService, rbacMiddleware)
+	adminHandler := route.NewAdminHandler(userService, rbacMiddleware)
 
 	// Setup Fiber app
 	app := fiber.New(fiber.Config{
@@ -83,6 +86,7 @@ func main() {
 	route.SetupNotificationRoutes(app, notificationHandler, rbacMiddleware)
 	route.SetupLecturerRoutes(app, lecturerHandler, rbacMiddleware)
 	route.SetupFileRoutes(app, fileHandler, rbacMiddleware)
+	route.SetupAdminRoutes(app, adminHandler, rbacMiddleware)
 
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {

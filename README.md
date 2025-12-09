@@ -65,6 +65,14 @@ Backend API untuk sistem autentikasi dengan RBAC (Role-Based Access Control).
 - ✅ Return updated status
 - ✅ **Implemented in FR-007** (approved: false)
 
+### FR-009: Manage Users ✅
+- ✅ Create/update/delete user
+- ✅ Assign role
+- ✅ Set student/lecturer profile
+- ✅ Set advisor untuk mahasiswa
+- ✅ Full CRUD operations
+- ✅ Admin-only access
+
 ## Tech Stack
 
 - Go 1.24
