@@ -57,6 +57,14 @@ Backend API untuk sistem autentikasi dengan RBAC (Role-Based Access Control).
 - ✅ Return updated status
 - ✅ Notification untuk mahasiswa
 
+### FR-008: Reject Prestasi ✅
+- ✅ Dosen input rejection note
+- ✅ Update status menjadi 'rejected'
+- ✅ Save rejection_note
+- ✅ Create notification untuk mahasiswa
+- ✅ Return updated status
+- ✅ **Implemented in FR-007** (approved: false)
+
 ## Tech Stack
 
 - Go 1.24
