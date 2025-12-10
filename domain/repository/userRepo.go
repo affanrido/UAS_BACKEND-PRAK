@@ -403,3 +403,35 @@ func (r *UserRepository) GetLecturerByID(lecturerID uuid.UUID) (*model.Lecturer,
 
 	return &lecturer, nil
 }
+
+// GetAllRoles - Get all roles
+func (r *UserRepository) GetAllRoles() ([]model.Roles, error) {
+	query := `
+		SELECT id, name, description, created_at
+		FROM roles
+		ORDER BY name
+	`
+
+	rows, err := r.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roles []model.Roles
+	for rows.Next() {
+		var role model.Roles
+		err := rows.Scan(
+			&role.ID,
+			&role.Name,
+			&role.Description,
+			&role.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+
+	return roles, nil
+}

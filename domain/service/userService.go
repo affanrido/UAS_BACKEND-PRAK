@@ -410,6 +410,11 @@ func (s *UserService) GetUserByID(userID uuid.UUID) (*UserResponse, error) {
 	}, nil
 }
 
+// GetAllRoles - Get all roles for dropdown
+func (s *UserService) GetAllRoles() ([]model.Roles, error) {
+	return s.Repo.GetAllRoles()
+}
+
 // validateCreateUserRequest - Validasi input
 func (s *UserService) validateCreateUserRequest(req *CreateUserRequest) error {
 	if req.Username == "" {

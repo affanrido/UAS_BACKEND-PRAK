@@ -2,22 +2,27 @@ package route
 
 import (
 	"UAS_BACKEND/domain/middleware"
+	model "UAS_BACKEND/domain/Model"
 	"UAS_BACKEND/domain/service"
+	"context"
 	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 )
 
 type AdminHandler struct {
-	UserService    *service.UserService
-	RBACMiddleware *middleware.RBACMiddleware
+	UserService             *service.UserService
+	AdminAchievementService *service.AdminAchievementService
+	RBACMiddleware          *middleware.RBACMiddleware
 }
 
-func NewAdminHandler(userService *service.UserService, rbacMiddleware *middleware.RBACMiddleware) *AdminHandler {
+func NewAdminHandler(userService *service.UserService, adminAchievementService *service.AdminAchievementService, rbacMiddleware *middleware.RBACMiddleware) *AdminHandler {
 	return &AdminHandler{
-		UserService:    userService,
-		RBACMiddleware: rbacMiddleware,
+		UserService:             userService,
+		AdminAchievementService: adminAchievementService,
+		RBACMiddleware:          rbacMiddleware,
 	}
 }
 
@@ -290,6 +295,97 @@ func (h *AdminHandler) SetAdvisor(c *fiber.Ctx) error {
 	})
 }
 
+// ViewAllAchievements - Handler untuk view all achievements (FR-010)
+func (h *AdminHandler) ViewAllAchievements(c *fiber.Ctx) error {
+	// Parse query parameters
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	size, _ := strconv.Atoi(c.Query("size", "10"))
+
+	// Parse filters
+	filter := &model.AdminAchievementFilter{
+		Status:          c.Query("status"),
+		AchievementType: c.Query("achievement_type"),
+		StudentID:       c.Query("student_id"),
+		AdvisorID:       c.Query("advisor_id"),
+		ProgramStudy:    c.Query("program_study"),
+	}
+
+	// Parse sort
+	sort := &model.AdminAchievementSort{
+		Field: c.Query("sort_field", "created_at"),
+		Order: c.Query("sort_order", "desc"),
+	}
+
+	// Create request
+	req := &service.ViewAllAchievementsRequest{
+		Page:   page,
+		Size:   size,
+		Filter: filter,
+		Sort:   sort,
+	}
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Get achievements
+	response, err := h.AdminAchievementService.ViewAllAchievements(ctx, req)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Achievements retrieved successfully",
+		"data":    response.Achievements,
+		"pagination": response.Pagination,
+		"summary": response.Summary,
+	})
+}
+
+// GetAchievementDetail - Handler untuk get achievement detail by reference ID
+func (h *AdminHandler) GetAchievementDetail(c *fiber.Ctx) error {
+	referenceID, err := uuid.Parse(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid reference ID",
+		})
+	}
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get achievement detail
+	achievement, err := h.AdminAchievementService.GetAchievementByReferenceID(ctx, referenceID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Achievement detail retrieved successfully",
+		"data":    achievement,
+	})
+}
+
+// GetRoles - Handler untuk get all roles
+func (h *AdminHandler) GetRoles(c *fiber.Ctx) error {
+	roles, err := h.UserService.GetAllRoles()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Roles retrieved successfully",
+		"data":    roles,
+	})
+}
+
 // SetupAdminRoutes - Setup routes untuk admin
 func SetupAdminRoutes(app *fiber.App, handler *AdminHandler, rbac *middleware.RBACMiddleware) {
 	api := app.Group("/api")
@@ -307,5 +403,12 @@ func SetupAdminRoutes(app *fiber.App, handler *AdminHandler, rbac *middleware.RB
 		admin.Post("/users/:id/student-profile", handler.SetStudentProfile)   // Set student profile
 		admin.Post("/users/:id/lecturer-profile", handler.SetLecturerProfile) // Set lecturer profile
 		admin.Post("/users/:id/set-advisor", handler.SetAdvisor)    // Set advisor
+
+		// Achievement management
+		admin.Get("/achievements", handler.ViewAllAchievements)      // View all achievements
+		admin.Get("/achievements/:id", handler.GetAchievementDetail) // Get achievement detail
+
+		// Utility endpoints
+		admin.Get("/roles", handler.GetRoles)                       // Get all roles
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -527,6 +528,166 @@ func (r *AchievementRepository) GetLecturerByUserID(userID uuid.UUID) (*model.Le
 	}
 
 	return &lecturer, nil
+}
+
+// GetAllAchievementReferencesAdmin - Get all achievement references for admin with filter and pagination
+func (r *AchievementRepository) GetAllAchievementReferencesAdmin(limit, offset int, filter *model.AdminAchievementFilter, sort *model.AdminAchievementSort) ([]model.AchievementReference, int, error) {
+	// Build WHERE clause
+	whereClause := "WHERE ar.is_deleted = false"
+	args := []interface{}{}
+	argIndex := 1
+
+	if filter != nil {
+		if filter.Status != "" {
+			whereClause += " AND ar.status = $" + fmt.Sprintf("%d", argIndex)
+			args = append(args, filter.Status)
+			argIndex++
+		}
+		if filter.StudentID != "" {
+			whereClause += " AND s.student_id = $" + fmt.Sprintf("%d", argIndex)
+			args = append(args, filter.StudentID)
+			argIndex++
+		}
+		if filter.ProgramStudy != "" {
+			whereClause += " AND s.program_study ILIKE $" + fmt.Sprintf("%d", argIndex)
+			args = append(args, "%"+filter.ProgramStudy+"%")
+			argIndex++
+		}
+		if filter.AdvisorID != "" {
+			whereClause += " AND l.lecturer_id = $" + fmt.Sprintf("%d", argIndex)
+			args = append(args, filter.AdvisorID)
+			argIndex++
+		}
+	}
+
+	// Count total
+	countQuery := `
+		SELECT COUNT(*)
+		FROM achievement_references ar
+		JOIN students s ON ar.student_id = s.id
+		JOIN lecturers l ON s.advisor_id = l.id
+		` + whereClause
+
+	var total int
+	err := r.PostgresDB.QueryRow(countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Build ORDER BY clause
+	orderClause := "ORDER BY ar.created_at DESC"
+	if sort != nil {
+		switch sort.Field {
+		case "created_at":
+			orderClause = "ORDER BY ar.created_at"
+		case "updated_at":
+			orderClause = "ORDER BY ar.updated_at"
+		case "status":
+			orderClause = "ORDER BY ar.status"
+		case "student_name":
+			orderClause = "ORDER BY u.full_name"
+		}
+		
+		if sort.Order == "asc" {
+			orderClause += " ASC"
+		} else {
+			orderClause += " DESC"
+		}
+	}
+
+	// Get data with pagination
+	query := `
+		SELECT ar.id, ar.student_id, ar.mongo_achievement_id, ar.status, 
+		       ar.submitted_at, ar.verified_at, ar.verified_by, ar.rejection_note,
+		       ar.is_deleted, ar.deleted_at, ar.created_at, ar.updated_at
+		FROM achievement_references ar
+		JOIN students s ON ar.student_id = s.id
+		JOIN users u ON s.user_id = u.id
+		JOIN lecturers l ON s.advisor_id = l.id
+		` + whereClause + " " + orderClause + `
+		LIMIT $` + fmt.Sprintf("%d", argIndex) + ` OFFSET $` + fmt.Sprintf("%d", argIndex+1)
+
+	args = append(args, limit, offset)
+
+	rows, err := r.PostgresDB.Query(query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var references []model.AchievementReference
+	for rows.Next() {
+		var ref model.AchievementReference
+		err := rows.Scan(
+			&ref.ID,
+			&ref.StudentID,
+			&ref.MongoAchievementID,
+			&ref.Status,
+			&ref.SubmittedAt,
+			&ref.VerifiedAt,
+			&ref.VerifiedBy,
+			&ref.RejectionNote,
+			&ref.IsDeleted,
+			&ref.DeletedAt,
+			&ref.CreatedAt,
+			&ref.UpdatedAt,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		references = append(references, ref)
+	}
+
+	return references, total, nil
+}
+
+// GetAchievementSummaryAdmin - Get achievement statistics for admin
+func (r *AchievementRepository) GetAchievementSummaryAdmin(filter *model.AdminAchievementFilter) (*model.AchievementSummary, error) {
+	// Build WHERE clause
+	whereClause := "WHERE ar.is_deleted = false"
+	args := []interface{}{}
+	argIndex := 1
+
+	if filter != nil {
+		if filter.StudentID != "" {
+			whereClause += " AND s.student_id = $" + fmt.Sprintf("%d", argIndex)
+			args = append(args, filter.StudentID)
+			argIndex++
+		}
+		if filter.ProgramStudy != "" {
+			whereClause += " AND s.program_study ILIKE $" + fmt.Sprintf("%d", argIndex)
+			args = append(args, "%"+filter.ProgramStudy+"%")
+			argIndex++
+		}
+		if filter.AdvisorID != "" {
+			whereClause += " AND l.lecturer_id = $" + fmt.Sprintf("%d", argIndex)
+			args = append(args, filter.AdvisorID)
+			argIndex++
+		}
+	}
+
+	query := `
+		SELECT 
+			COUNT(*) as total,
+			COUNT(CASE WHEN ar.status = 'draft' THEN 1 END) as draft,
+			COUNT(CASE WHEN ar.status = 'submitted' THEN 1 END) as submitted,
+			COUNT(CASE WHEN ar.status = 'verified' THEN 1 END) as verified,
+			COUNT(CASE WHEN ar.status = 'rejected' THEN 1 END) as rejected
+		FROM achievement_references ar
+		JOIN students s ON ar.student_id = s.id
+		JOIN lecturers l ON s.advisor_id = l.id
+		` + whereClause
+
+	var summary model.AchievementSummary
+	err := r.PostgresDB.QueryRow(query, args...).Scan(
+		&summary.Total,
+		&summary.Draft,
+		&summary.Submitted,
+		&summary.Verified,
+		&summary.Rejected,
+	)
+
+	return &summary, err
 }
 
 // GetStudentByID - Ambil data student berdasarkan ID

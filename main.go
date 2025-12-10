@@ -48,6 +48,7 @@ func main() {
 	notificationService := service.NewNotificationService(notificationRepo)
 	fileService := service.NewFileService("./uploads", 10) // Max 10MB per file
 	userService := service.NewUserService(userRepo)
+	adminAchievementService := service.NewAdminAchievementService(achievementRepo)
 
 	// Initialize middleware
 	rbacMiddleware := middleware.NewRBACMiddleware(authService, rbacService)
@@ -59,7 +60,7 @@ func main() {
 	notificationHandler := route.NewNotificationHandler(notificationService, rbacMiddleware)
 	lecturerHandler := route.NewLecturerHandler(achievementService, notificationService, rbacMiddleware)
 	fileHandler := route.NewFileHandler(fileService, rbacMiddleware)
-	adminHandler := route.NewAdminHandler(userService, rbacMiddleware)
+	adminHandler := route.NewAdminHandler(userService, adminAchievementService, rbacMiddleware)
 
 	// Setup Fiber app
 	app := fiber.New(fiber.Config{

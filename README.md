@@ -73,6 +73,14 @@ Backend API untuk sistem autentikasi dengan RBAC (Role-Based Access Control).
 - ✅ Full CRUD operations
 - ✅ Admin-only access
 
+### FR-010: View All Achievements ✅
+- ✅ Get all achievement references
+- ✅ Fetch details dari MongoDB
+- ✅ Apply filters dan sorting
+- ✅ Return dengan pagination
+- ✅ Summary statistics
+- ✅ Combined data response
+
 ## Tech Stack
 
 - Go 1.24
