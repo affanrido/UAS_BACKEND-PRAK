@@ -36,6 +36,7 @@ func main() {
 	achievementRepo := repository.NewAchievementRepository(cfg.DB, mongoCfg.Database)
 	notificationRepo := repository.NewNotificationRepository(cfg.DB)
 	userRepo := repository.NewUserRepository(cfg.DB)
+	statisticsRepo := repository.NewStatisticsRepository(cfg.DB, mongoCfg.Database)
 
 	// Initialize services
 	authService := service.NewAuthService(
@@ -49,6 +50,7 @@ func main() {
 	fileService := service.NewFileService("./uploads", 10) // Max 10MB per file
 	userService := service.NewUserService(userRepo)
 	adminAchievementService := service.NewAdminAchievementService(achievementRepo)
+	statisticsService := service.NewStatisticsService(statisticsRepo)
 
 	// Initialize middleware
 	rbacMiddleware := middleware.NewRBACMiddleware(authService, rbacService)
@@ -61,6 +63,7 @@ func main() {
 	lecturerHandler := route.NewLecturerHandler(achievementService, notificationService, rbacMiddleware)
 	fileHandler := route.NewFileHandler(fileService, rbacMiddleware)
 	adminHandler := route.NewAdminHandler(userService, adminAchievementService, rbacMiddleware)
+	statisticsHandler := route.NewStatisticsHandler(statisticsService, rbacMiddleware)
 
 	// Setup Fiber app
 	app := fiber.New(fiber.Config{
@@ -88,6 +91,7 @@ func main() {
 	route.SetupLecturerRoutes(app, lecturerHandler, rbacMiddleware)
 	route.SetupFileRoutes(app, fileHandler, rbacMiddleware)
 	route.SetupAdminRoutes(app, adminHandler, rbacMiddleware)
+	route.SetupStatisticsRoutes(app, statisticsHandler, rbacMiddleware)
 
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {
