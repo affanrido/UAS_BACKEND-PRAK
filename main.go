@@ -13,6 +13,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/swagger"
+	"github.com/swaggo/files"
 )
 
 func main() {
@@ -92,6 +94,21 @@ func main() {
 	route.SetupFileRoutes(app, fileHandler, rbacMiddleware)
 	route.SetupAdminRoutes(app, adminHandler, rbacMiddleware)
 	route.SetupStatisticsRoutes(app, statisticsHandler, rbacMiddleware)
+
+	// Swagger documentation
+	app.Get("/swagger/*", swagger.New(swagger.Config{
+		URL:         "/swagger/doc.json",
+		DeepLinking: false,
+		DocExpansion: "none",
+		OAuth: &swagger.OAuthConfig{
+			AppName:  "OAuth Provider",
+			ClientId: "21bb4edc-05a4-42df-9f87-14e65e41200e",
+		},
+		OAuth2RedirectUrl: "http://localhost:8080/swagger/oauth2-redirect.html",
+	}))
+
+	// Serve swagger.yaml file
+	app.Static("/swagger", "./docs")
 
 	// Health check
 	app.Get("/health", func(c *fiber.Ctx) error {

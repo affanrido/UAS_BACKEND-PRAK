@@ -1,0 +1,1558 @@
+openapi: 3.0.3
+info:
+  title: UAS Backend API
+  description: |
+    Backend API untuk sistem autentikasi dengan RBAC (Role-Based Access Control) dan manajemen prestasi mahasiswa.
+    
+    ## Features
+    - Authentication dengan JWT
+    - Role-Based Access Control (RBAC)
+    - Manajemen Prestasi Mahasiswa
+    - Sistem Notifikasi
+    - Statistik Prestasi
+    - Manajemen User
+    
+    ## Authentication
+    Sebagian besar endpoint memerlukan authentication. Gunakan Bearer token di header Authorization:
+    ```
+    Authorization: Bearer <your_jwt_token>
+    ```
+    
+    ## Test Users
+    - **Admin**: admin@example.com / password123
+    - **Lecturer**: lecturer@example.com / password123  
+    - **Student**: student@example.com / password123
+  version: 1.0.0
+  contact:
+    name: UAS Backend Team
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+  - url: https://api.example.com
+    description: Production server
+
+tags:
+  - name: Authentication
+    description: Login dan autentikasi
+  - name: Profile
+    description: User profile management
+  - name: Achievements
+    description: Manajemen prestasi mahasiswa
+  - name: Users
+    description: Manajemen user (Admin only)
+  - name: Statistics
+    description: Statistik prestasi
+  - name: Notifications
+    description: Sistem notifikasi
+  - name: Health
+    description: Health check endpoints
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check server status
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /api/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Login dengan username/email dan password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            examples:
+              email_login:
+                summary: Login dengan email
+                value:
+                  identifier: "admin@example.com"
+                  password: "password123"
+              username_login:
+                summary: Login dengan username
+                value:
+                  identifier: "admin"
+                  password: "password123"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Bad request - Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Username/email and password are required"
+        '401':
+          description: Unauthorized - Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "Invalid credentials"
+
+  /api/profile:
+    get:
+      tags:
+        - Profile
+      summary: Get user profile
+      description: Get current user profile information
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Profile accessed"
+                  user_id:
+                    type: string
+                    format: uuid
+                    example: "770e8400-e29b-41d4-a716-446655440001"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/student/achievements:
+    get:
+      tags:
+        - Achievements
+      summary: Get student achievements
+      description: Get list of achievements for current student
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [draft, submitted, verified, rejected]
+      responses:
+        '200':
+          description: Achievements retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AchievementListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags:
+        - Achievements
+      summary: Submit new achievement
+      description: Create a new achievement (FR-003)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitAchievementRequest'
+      responses:
+        '201':
+          description: Achievement created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AchievementResponse'
+        '400':
+          description: Bad request - Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/student/achievements/{id}/submit:
+    post:
+      tags:
+        - Achievements
+      summary: Submit achievement for verification
+      description: Submit draft achievement for lecturer verification (FR-004)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Achievement reference ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Achievement submitted for verification
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Achievement submitted for verification successfully"
+                  reference_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: "submitted"
+        '400':
+          description: Bad request - Invalid status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Achievement not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/student/achievements/{id}:
+    delete:
+      tags:
+        - Achievements
+      summary: Delete achievement
+      description: Soft delete achievement (FR-005) - only draft status allowed
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Achievement reference ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Achievement deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Achievement deleted successfully"
+                  reference_id:
+                    type: string
+                    format: uuid
+        '400':
+          description: Bad request - Cannot delete non-draft achievement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Achievement not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/lecturer/achievements:
+    get:
+      tags:
+        - Achievements
+      summary: Get advisee achievements
+      description: Get achievements from students under supervision (FR-006)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [draft, submitted, verified, rejected]
+        - name: student_id
+          in: query
+          description: Filter by specific student
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Advisee achievements retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AchievementListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/lecturer/achievements/{id}/verify:
+    post:
+      tags:
+        - Achievements
+      summary: Verify or reject achievement
+      description: Approve or reject student achievement (FR-007, FR-008)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Achievement reference ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                approved:
+                  type: boolean
+                  description: true for approve, false for reject
+                  example: true
+                rejection_note:
+                  type: string
+                  description: Required when approved=false
+                  example: "Documentation incomplete"
+              required:
+                - approved
+      responses:
+        '200':
+          description: Achievement verification completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Achievement verified successfully"
+                  reference_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [verified, rejected]
+                  verified_by:
+                    type: string
+                    format: uuid
+                  verified_at:
+                    type: string
+                    format: date-time
+                  rejection_note:
+                    type: string
+                    nullable: true
+        '400':
+          description: Bad request - Invalid status or missing rejection note
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Achievement not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/admin/users:
+    get:
+      tags:
+        - Users
+      summary: Get all users
+      description: Get list of all users with pagination (FR-009)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: role
+          in: query
+          description: Filter by role
+          schema:
+            type: string
+            enum: [admin, lecturer, student]
+        - name: is_active
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags:
+        - Users
+      summary: Create new user
+      description: Create new user with role and profile (FR-009)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Bad request - Validation error or conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/admin/users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Get user by ID
+      description: Get specific user details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Users
+      summary: Update user
+      description: Update user information (FR-009)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Bad request - Validation error or conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Users
+      summary: Delete user
+      description: Delete user (FR-009)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User deleted successfully"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/admin/achievements:
+    get:
+      tags:
+        - Achievements
+      summary: Get all achievements
+      description: Get all achievements with filters and pagination (FR-010)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [draft, submitted, verified, rejected]
+        - name: type
+          in: query
+          description: Filter by achievement type
+          schema:
+            type: string
+            enum: [competition, publication, organization, certification, academic, other]
+        - name: student_id
+          in: query
+          description: Filter by student
+          schema:
+            type: string
+            format: uuid
+        - name: start_date
+          in: query
+          description: Filter by creation date (start)
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          description: Filter by creation date (end)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: All achievements retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AchievementListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/student/statistics:
+    get:
+      tags:
+        - Statistics
+      summary: Get student statistics
+      description: Get achievement statistics for current student (FR-011)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: start_date
+          in: query
+          description: Start date for statistics
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          description: End date for statistics
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Student statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatisticsResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/lecturer/statistics:
+    get:
+      tags:
+        - Statistics
+      summary: Get lecturer statistics
+      description: Get achievement statistics for advisee students (FR-011)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: start_date
+          in: query
+          description: Start date for statistics
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          description: End date for statistics
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Lecturer statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatisticsResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/admin/statistics:
+    get:
+      tags:
+        - Statistics
+      summary: Get admin statistics
+      description: Get achievement statistics for all students (FR-011)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: start_date
+          in: query
+          description: Start date for statistics
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          description: End date for statistics
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Admin statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatisticsResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Get user notifications
+      description: Get notifications for current user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: Number of notifications to retrieve
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Notifications retrieved successfully"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/notifications/unread-count:
+    get:
+      tags:
+        - Notifications
+      summary: Get unread notification count
+      description: Get count of unread notifications for current user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Unread count retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Unread count retrieved successfully"
+                  count:
+                    type: integer
+                    example: 5
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/notifications/{id}/read:
+    post:
+      tags:
+        - Notifications
+      summary: Mark notification as read
+      description: Mark specific notification as read
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Notification ID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Notification marked as read"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Notification not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/notifications/read-all:
+    post:
+      tags:
+        - Notifications
+      summary: Mark all notifications as read
+      description: Mark all notifications as read for current user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: All notifications marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "All notifications marked as read"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from login endpoint.
+        Format: `Bearer <token>`
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Unauthorized: Missing or invalid token"
+
+    ForbiddenError:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "Forbidden: Insufficient permissions"
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - identifier
+        - password
+      properties:
+        identifier:
+          type: string
+          description: Username or email
+          example: "admin@example.com"
+        password:
+          type: string
+          format: password
+          description: User password
+          example: "password123"
+
+    LoginResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Login successful"
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              description: JWT token
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            user:
+              $ref: '#/components/schemas/UserInfo'
+            expires_at:
+              type: string
+              format: date-time
+              example: "2024-01-02T00:00:00Z"
+
+    UserInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "770e8400-e29b-41d4-a716-446655440001"
+        username:
+          type: string
+          example: "admin"
+        email:
+          type: string
+          format: email
+          example: "admin@example.com"
+        full_name:
+          type: string
+          example: "Administrator"
+        role_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00Z"
+
+    SubmitAchievementRequest:
+      type: object
+      required:
+        - achievement_type
+        - title
+        - description
+        - details
+        - points
+      properties:
+        achievement_type:
+          type: string
+          enum: [competition, publication, organization, certification, academic, other]
+          example: "competition"
+        title:
+          type: string
+          example: "Programming Competition Winner"
+        description:
+          type: string
+          example: "Won first place in national programming competition"
+        details:
+          type: object
+          description: Dynamic details based on achievement type
+          example:
+            competition_name: "National Programming Contest"
+            competition_level: "national"
+            rank: 1
+            participants: 100
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              file_name:
+                type: string
+                example: "certificate.pdf"
+              file_url:
+                type: string
+                example: "/uploads/certificate.pdf"
+              file_type:
+                type: string
+                example: "application/pdf"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["programming", "competition", "national"]
+        points:
+          type: number
+          format: float
+          example: 100.0
+
+    Achievement:
+      type: object
+      properties:
+        id:
+          type: string
+          description: MongoDB ObjectID
+          example: "507f1f77bcf86cd799439011"
+        student_id:
+          type: string
+          format: uuid
+          example: "770e8400-e29b-41d4-a716-446655440001"
+        achievement_type:
+          type: string
+          enum: [competition, publication, organization, certification, academic, other]
+          example: "competition"
+        title:
+          type: string
+          example: "Programming Competition Winner"
+        description:
+          type: string
+          example: "Won first place in national programming competition"
+        details:
+          type: object
+          example:
+            competition_name: "National Programming Contest"
+            competition_level: "national"
+            rank: 1
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              file_name:
+                type: string
+              file_url:
+                type: string
+              file_type:
+                type: string
+        tags:
+          type: array
+          items:
+            type: string
+        points:
+          type: number
+          format: float
+          example: 100.0
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AchievementReference:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "770e8400-e29b-41d4-a716-446655440001"
+        student_id:
+          type: string
+          format: uuid
+          example: "770e8400-e29b-41d4-a716-446655440002"
+        mongo_achievement_id:
+          type: string
+          description: MongoDB ObjectID
+          example: "507f1f77bcf86cd799439011"
+        status:
+          type: string
+          enum: [draft, submitted, verified, rejected]
+          example: "submitted"
+        verified_by:
+          type: string
+          format: uuid
+          nullable: true
+          example: "770e8400-e29b-41d4-a716-446655440003"
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2024-01-01T12:00:00Z"
+        rejection_note:
+          type: string
+          nullable: true
+          example: "Documentation incomplete"
+        is_deleted:
+          type: boolean
+          example: false
+        deleted_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AchievementResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Achievement created successfully"
+        data:
+          type: object
+          properties:
+            reference_id:
+              type: string
+              format: uuid
+            mongo_achievement_id:
+              type: string
+            status:
+              type: string
+              enum: [draft, submitted, verified, rejected]
+            achievement:
+              $ref: '#/components/schemas/Achievement'
+
+    AchievementListResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Achievements retrieved successfully"
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              reference:
+                $ref: '#/components/schemas/AchievementReference'
+              achievement:
+                $ref: '#/components/schemas/Achievement'
+              student:
+                $ref: '#/components/schemas/StudentInfo'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateUserRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+        - full_name
+        - role_id
+        - is_active
+      properties:
+        username:
+          type: string
+          example: "newuser"
+        email:
+          type: string
+          format: email
+          example: "newuser@example.com"
+        password:
+          type: string
+          format: password
+          minLength: 6
+          example: "password123"
+        full_name:
+          type: string
+          example: "New User"
+        role_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
+        is_active:
+          type: boolean
+          example: true
+        student_data:
+          type: object
+          nullable: true
+          properties:
+            student_id:
+              type: string
+              example: "STD001"
+            program_study:
+              type: string
+              example: "Computer Science"
+            academic_year:
+              type: string
+              example: "2021"
+            advisor_id:
+              type: string
+              format: uuid
+        lecturer_data:
+          type: object
+          nullable: true
+          properties:
+            lecturer_id:
+              type: string
+              example: "LEC001"
+            department:
+              type: string
+              example: "Computer Science"
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          example: "updateduser"
+        email:
+          type: string
+          format: email
+          example: "updated@example.com"
+        password:
+          type: string
+          format: password
+          minLength: 6
+          example: "newpassword123"
+        full_name:
+          type: string
+          example: "Updated Name"
+        role_id:
+          type: string
+          format: uuid
+        is_active:
+          type: boolean
+
+    UserResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "User retrieved successfully"
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/UserInfo'
+            student:
+              $ref: '#/components/schemas/StudentInfo'
+              nullable: true
+            lecturer:
+              $ref: '#/components/schemas/LecturerInfo'
+              nullable: true
+            role:
+              $ref: '#/components/schemas/RoleInfo'
+
+    UserListResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Users retrieved successfully"
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              user:
+                $ref: '#/components/schemas/UserInfo'
+              student:
+                $ref: '#/components/schemas/StudentInfo'
+                nullable: true
+              lecturer:
+                $ref: '#/components/schemas/LecturerInfo'
+                nullable: true
+              role:
+                $ref: '#/components/schemas/RoleInfo'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    StudentInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        student_id:
+          type: string
+          example: "STD001"
+        program_study:
+          type: string
+          example: "Computer Science"
+        academic_year:
+          type: string
+          example: "2021"
+        advisor_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    LecturerInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        lecturer_id:
+          type: string
+          example: "LEC001"
+        department:
+          type: string
+          example: "Computer Science"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RoleInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "admin"
+        description:
+          type: string
+          example: "Administrator role"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    StatisticsResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Statistics retrieved successfully"
+        data:
+          type: object
+          properties:
+            type_stats:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    example: "competition"
+                  count:
+                    type: integer
+                    example: 15
+                  total:
+                    type: integer
+                    example: 15
+            period_stats:
+              type: array
+              items:
+                type: object
+                properties:
+                  period:
+                    type: string
+                    example: "2024-01"
+                  count:
+                    type: integer
+                    example: 8
+                  total:
+                    type: integer
+                    example: 8
+            top_students:
+              type: array
+              items:
+                type: object
+                properties:
+                  student_id:
+                    type: string
+                    example: "STD001"
+                  student_name:
+                    type: string
+                    example: "John Doe"
+                  program_study:
+                    type: string
+                    example: "Computer Science"
+                  academic_year:
+                    type: string
+                    example: "2021"
+                  total_points:
+                    type: number
+                    format: float
+                    example: 500.0
+                  total_count:
+                    type: integer
+                    example: 5
+            competition_stats:
+              type: array
+              items:
+                type: object
+                properties:
+                  level:
+                    type: string
+                    example: "national"
+                  count:
+                    type: integer
+                    example: 10
+                  total:
+                    type: integer
+                    example: 10
+            summary:
+              type: object
+              properties:
+                total_achievements:
+                  type: integer
+                  example: 25
+                total_points:
+                  type: number
+                  format: float
+                  example: 2500.0
+                average_points:
+                  type: number
+                  format: float
+                  example: 100.0
+                verified_count:
+                  type: integer
+                  example: 20
+                pending_count:
+                  type: integer
+                  example: 5
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [achievement_submitted, achievement_verified, achievement_rejected]
+          example: "achievement_submitted"
+        title:
+          type: string
+          example: "Prestasi Baru Menunggu Verifikasi"
+        message:
+          type: string
+          example: "Mahasiswa John Doe telah mengajukan prestasi 'Programming Competition' untuk diverifikasi."
+        related_id:
+          type: string
+          format: uuid
+          nullable: true
+        is_read:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 100
+        total_pages:
+          type: integer
+          example: 10
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Error message"
+        details:
+          type: string
+          nullable: true
+          example: "Additional error details"

@@ -377,6 +377,178 @@ curl -X POST http://localhost:8080/api/auth/login \
 - Auto cleanup expired entries
 - Per-user permission cache
 
+## Testing
+
+### Unit Testing ✅
+
+Comprehensive unit testing implementation following requirements:
+
+- ✅ **Test individual functions and methods**
+- ✅ **Mock external dependencies** 
+- ✅ **Cover success cases, error cases, and edge cases**
+- ✅ **Use testify framework for assertions and mocks**
+
+#### Test Structure
+
+```
+tests/
+├── mocks/              # Mock implementations
+├── service/            # Service layer tests  
+├── middleware/         # Middleware tests
+├── integration/        # Integration tests
+└── README.md          # Testing documentation
+```
+
+#### Running Tests
+
+```bash
+# Run all tests
+make test
+
+# Run with verbose output
+make test-verbose
+
+# Run with coverage report
+make test-coverage
+
+# Run specific test suites
+make test-service      # Service layer only
+make test-middleware   # Middleware only
+make test-integration  # Integration tests only
+
+# Or using go test directly
+go test ./tests/... -v
+go test ./tests/service -v
+go test ./tests/... -v -cover
+```
+
+#### Test Coverage
+
+- **Service Layer**: AuthService, AchievementService, UserService, StatisticsService, NotificationService
+- **Middleware**: Authentication, RBAC (Role-Based Access Control)
+- **Integration**: HTTP handlers, request/response validation
+- **Mocks**: All external dependencies (repositories, services)
+
+#### Test Features
+
+- **Comprehensive Coverage**: Success cases, error cases, edge cases, validation errors
+- **Mock Dependencies**: Database operations, external services, cross-service calls
+- **Integration Testing**: HTTP endpoints, middleware chains, request validation
+- **Performance Testing**: No external dependencies, fast execution
+- **CI/CD Ready**: Deterministic results, clear pass/fail indicators
+
+See [tests/README.md](tests/README.md) for detailed testing documentation.
+
+## API Documentation
+
+### 7.1 Swagger untuk API Documentation ✅
+
+Comprehensive API documentation dengan Swagger UI yang interaktif:
+
+#### **Access Documentation:**
+- **Swagger UI**: `http://localhost:8080/swagger/` - Interactive API testing
+- **Static Docs**: [docs/swagger.yaml](docs/swagger.yaml) - OpenAPI 3.0 specification
+- **Postman Collection**: [docs/UAS_Backend_API.postman_collection.json](docs/UAS_Backend_API.postman_collection.json)
+
+#### **Features:**
+- ✅ **Interactive Testing** - Test endpoints directly from browser
+- ✅ **Authentication Support** - JWT Bearer token integration
+- ✅ **Request/Response Examples** - Complete examples for all endpoints
+- ✅ **Schema Validation** - Request/response schema documentation
+- ✅ **Error Documentation** - Comprehensive error codes and messages
+- ✅ **Role-Based Examples** - Different examples for Admin/Lecturer/Student
+
+#### **Quick Start:**
+```bash
+# Start server
+go run main.go
+
+# Open Swagger UI
+open http://localhost:8080/swagger/
+
+# Test login endpoint
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"identifier":"admin@example.com","password":"password123"}'
+```
+
+#### **Documentation Structure:**
+```
+docs/
+├── swagger.yaml              # OpenAPI 3.0 specification
+├── swagger.json             # JSON format for tools
+├── index.html               # Custom Swagger UI
+├── README.md                # API documentation guide
+├── UAS_Backend_API.postman_collection.json    # Postman collection
+└── UAS_Backend_Environment.postman_environment.json # Postman environment
+```
+
+#### **API Coverage:**
+- **Authentication**: Login, JWT validation
+- **Achievements**: Submit, verify, delete, list (FR-003 to FR-008, FR-010)
+- **User Management**: CRUD operations (FR-009)
+- **Statistics**: Role-based statistics (FR-011)
+- **Notifications**: Real-time notification system
+- **RBAC**: Role-based access control (FR-002)
+
+#### **Testing Tools:**
+- **Swagger UI**: Interactive browser-based testing
+- **Postman**: Complete collection with environment variables
+- **cURL**: Command-line examples for all endpoints
+- **Automated Tests**: Unit tests with comprehensive coverage
+
+See [docs/README.md](docs/README.md) for detailed API documentation.
+
+### 7.2 Github Repository ✅
+
+Repository structure dan documentation:
+
+#### **Repository Features:**
+- ✅ **Complete Source Code** - All functional requirements implemented
+- ✅ **Comprehensive Documentation** - README, API docs, testing guides
+- ✅ **Database Schema** - PostgreSQL + MongoDB setup scripts
+- ✅ **Environment Configuration** - .env.example with all required variables
+- ✅ **Testing Suite** - Unit tests, integration tests, mocks
+- ✅ **API Documentation** - Swagger UI, Postman collection
+- ✅ **Build Instructions** - Step-by-step setup guide
+
+#### **Repository Structure:**
+```
+UAS_BACKEND/
+├── domain/                  # Business logic layer
+│   ├── config/             # Configuration management
+│   ├── middleware/         # Authentication & RBAC
+│   ├── model/              # Data models (PostgreSQL + MongoDB)
+│   ├── repository/         # Database layer
+│   ├── route/              # HTTP handlers & routing
+│   └── service/            # Business logic services
+├── database/               # Database setup
+│   ├── schema.sql          # PostgreSQL schema
+│   └── seed.sql            # Test data
+├── docs/                   # API documentation
+│   ├── swagger.yaml        # OpenAPI specification
+│   ├── README.md           # API guide
+│   └── *.postman_*         # Postman collection
+├── tests/                  # Testing suite
+│   ├── mocks/              # Mock implementations
+│   ├── service/            # Service layer tests
+│   ├── middleware/         # Middleware tests
+│   └── integration/        # Integration tests
+├── tools/                  # Utility tools
+├── .env.example            # Environment template
+├── go.mod                  # Go dependencies
+├── main.go                 # Application entry point
+├── Makefile               # Build automation
+└── README.md              # Project documentation
+```
+
+#### **Documentation Quality:**
+- **Setup Instructions** - Complete environment setup
+- **API Reference** - All endpoints documented with examples
+- **Testing Guide** - How to run and write tests
+- **Architecture Overview** - System design and patterns
+- **Deployment Guide** - Production deployment instructions
+
 ## License
 
 MIT

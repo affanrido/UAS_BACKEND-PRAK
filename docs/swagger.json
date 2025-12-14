@@ -1,0 +1,56 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "UAS Backend API",
+    "description": "Backend API untuk sistem autentikasi dengan RBAC (Role-Based Access Control) dan manajemen prestasi mahasiswa.\n\n## Features\n- Authentication dengan JWT\n- Role-Based Access Control (RBAC)\n- Manajemen Prestasi Mahasiswa\n- Sistem Notifikasi\n- Statistik Prestasi\n- Manajemen User\n\n## Authentication\nSebagian besar endpoint memerlukan authentication. Gunakan Bearer token di header Authorization:\n```\nAuthorization: Bearer <your_jwt_token>\n```\n\n## Test Users\n- **Admin**: admin@example.com / password123\n- **Lecturer**: lecturer@example.com / password123  \n- **Student**: student@example.com / password123",
+    "version": "1.0.0",
+    "contact": {
+      "name": "UAS Backend Team",
+      "email": "support@example.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Development server"
+    },
+    {
+      "url": "https://api.example.com",
+      "description": "Production server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "Login dan autentikasi"
+    },
+    {
+      "name": "Profile",
+      "description": "User profile management"
+    },
+    {
+      "name": "Achievements",
+      "description": "Manajemen prestasi mahasiswa"
+    },
+    {
+      "name": "Users",
+      "description": "Manajemen user (Admin only)"
+    },
+    {
+      "name": "Statistics",
+      "description": "Statistik prestasi"
+    },
+    {
+      "name": "Notifications",
+      "description": "Sistem notifikasi"
+    },
+    {
+      "name": "Health",
+      "description": "Health check endpoints"
+    }
+  ]
+}
