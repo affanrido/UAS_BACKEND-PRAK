@@ -99,15 +99,40 @@ go mod download
 
 ### 2. Setup Database
 
-Buat database PostgreSQL:
+#### Mengapa Ada File .sql? 🗄️
 
-```sql
-CREATE DATABASE uas_backend;
-```
+File `.sql` dalam folder `database/` adalah **script database** yang diperlukan untuk setup sistem:
 
-Jalankan schema dan seed:
+- **`schema.sql`** 🏗️ - Membuat struktur database (tabel, relasi, index)
+- **`seed.sql`** 🌱 - Mengisi data awal untuk testing (roles, permissions, test users)
+
+#### Setup PostgreSQL Database:
 
 ```bash
+# Buat database PostgreSQL
+createdb uas_backend
+
+# Jalankan schema untuk membuat struktur tabel
+psql -U postgres -d uas_backend -f database/schema.sql
+
+# Jalankan seed untuk mengisi data testing
+psql -U postgres -d uas_backend -f database/seed.sql
+
+# Atau gunakan Makefile (lebih mudah)
+make db-setup
+```
+
+#### Setup MongoDB:
+MongoDB akan otomatis membuat database dan collection saat aplikasi pertama kali berjalan.
+
+#### Reset Database (jika diperlukan):
+```bash
+# Reset complete database
+make db-reset
+
+# Atau manual
+dropdb uas_backend
+createdb uas_backend
 psql -U postgres -d uas_backend -f database/schema.sql
 psql -U postgres -d uas_backend -f database/seed.sql
 ```
@@ -141,7 +166,67 @@ Server akan berjalan di `http://localhost:8080`
 
 ## API Endpoints
 
-### Public Endpoints
+### 🆕 API v1 Endpoints (New Implementation)
+
+Implementasi API baru dengan versioning dan struktur yang lebih terorganisir:
+
+#### **Base URL**: `/api/v1/`
+
+#### **5.1 Authentication**
+- `POST /api/v1/auth/login` - User login
+- `POST /api/v1/auth/refresh` - Refresh JWT token
+- `POST /api/v1/auth/logout` - User logout
+- `GET /api/v1/auth/profile` - Get user profile
+
+#### **5.2 Users (Admin)**
+- `GET /api/v1/users` - Get all users
+- `GET /api/v1/users/:id` - Get user by ID
+- `POST /api/v1/users` - Create new user
+- `PUT /api/v1/users/:id` - Update user
+- `DELETE /api/v1/users/:id` - Delete user
+- `PUT /api/v1/users/:id/role` - Assign role
+
+#### **5.4 Achievements**
+- `GET /api/v1/achievements` - List achievements (filtered by role)
+- `GET /api/v1/achievements/:id` - Get achievement detail
+- `POST /api/v1/achievements` - Create achievement (Mahasiswa)
+- `PUT /api/v1/achievements/:id` - Update achievement (Mahasiswa)
+- `DELETE /api/v1/achievements/:id` - Delete achievement (Mahasiswa)
+- `POST /api/v1/achievements/:id/submit` - Submit for verification
+- `POST /api/v1/achievements/:id/verify` - Verify achievement (Dosen Wali)
+- `POST /api/v1/achievements/:id/reject` - Reject achievement (Dosen Wali)
+- `GET /api/v1/achievements/:id/history` - Status history
+- `POST /api/v1/achievements/:id/attachments` - Upload files
+
+#### **5.5 Students & Lecturers**
+- `GET /api/v1/students` - Get all students
+- `GET /api/v1/students/:id` - Get student by ID
+- `GET /api/v1/students/:id/achievements` - Get student achievements
+- `PUT /api/v1/students/:id/advisor` - Set student advisor
+- `GET /api/v1/lecturers` - Get all lecturers
+- `GET /api/v1/lecturers/:id/advisees` - Get lecturer advisees
+
+#### **5.8 Reports & Analytics**
+- `GET /api/v1/reports/statistics` - Get role-based statistics
+- `GET /api/v1/reports/student/:id` - Get student report
+
+**Features:**
+- ✅ **Consistent Response Format** - Standardized JSON responses
+- ✅ **Role-Based Filtering** - Automatic filtering based on user role
+- ✅ **Comprehensive Pagination** - Page, limit, total, total_pages
+- ✅ **Advanced Filtering** - Multiple query parameters for filtering
+- ✅ **File Upload Support** - Multipart form data handling
+- ✅ **Detailed Error Responses** - Structured error messages
+- ✅ **Status History Tracking** - Achievement status changes
+- ✅ **Analytics & Reports** - Role-based statistics and reports
+
+See [docs/API_V1_ENDPOINTS.md](docs/API_V1_ENDPOINTS.md) for detailed documentation.
+
+---
+
+### Legacy API Endpoints (Existing)
+
+#### Public Endpoints
 
 #### POST /api/auth/login
 
@@ -330,21 +415,96 @@ curl -X POST http://localhost:8080/api/auth/login \
 ## Project Structure
 
 ```
-.
-├── domain/
-│   ├── config/          # Configuration (DB, JWT)
-│   ├── middleware/      # Auth & RBAC middleware
-│   ├── model/           # Data models & DTOs
-│   ├── repository/      # Database layer
-│   ├── route/           # HTTP handlers & routes
-│   └── service/         # Business logic
-├── database/
-│   ├── schema.sql       # Database schema
-│   └── seed.sql         # Seed data
-├── .env.example         # Environment variables template
-├── go.mod
-├── go.sum
-└── main.go              # Application entry point
+UAS_BACKEND/
+├── database/                       # 🗄️ Database setup files
+│   ├── schema.sql                  # PostgreSQL database structure
+│   ├── seed.sql                    # Test data untuk development
+│   └── README.md                   # Database documentation
+├── docs/                           # 📚 API documentation
+│   ├── swagger.yaml                # OpenAPI 3.0 specification
+│   ├── swagger.json                # JSON format for tools
+│   ├── index.html                  # Custom Swagger UI
+│   ├── README.md                   # API documentation guide
+│   └── *.postman_*                 # Postman collection & environment
+├── domain/                         # 🏗️ Business logic layer
+│   ├── config/                     # Configuration management
+│   │   ├── config.go               # Database configuration
+│   │   ├── env.go                  # Environment variables
+│   │   ├── logger.go               # Logging configuration
+│   │   ├── mongodb.go              # MongoDB configuration
+│   │   └── token.go                # JWT token configuration
+│   ├── middleware/                 # 🛡️ Authentication & RBAC
+│   │   ├── Auth.go                 # JWT authentication middleware
+│   │   ├── rbac.go                 # Role-based access control
+│   │   └── TokenMiddleware.go      # Token validation middleware
+│   ├── model/                      # 📊 Data models (PostgreSQL + MongoDB)
+│   │   ├── Users.go                # User model
+│   │   ├── Roles.go                # Role model
+│   │   ├── Permission.go           # Permission model
+│   │   ├── Role_Permission.go      # Role-Permission mapping
+│   │   ├── Student.go              # Student profile model
+│   │   ├── Lecturers.go            # Lecturer profile model
+│   │   ├── achievement_references.go # Achievement reference (PostgreSQL)
+│   │   ├── achievements.go         # Achievement detail (MongoDB)
+│   │   ├── Notification.go         # Notification model
+│   │   ├── Pagination.go           # Pagination helper
+│   │   └── README.md               # Model documentation
+│   ├── repository/                 # 🗃️ Database access layer
+│   │   ├── authRepo.go             # Authentication repository
+│   │   ├── achievementRepo.go      # Achievement repository
+│   │   ├── userRepo.go             # User management repository
+│   │   ├── statisticsRepo.go       # Statistics repository
+│   │   ├── notificationRepo.go     # Notification repository
+│   │   └── rbacRepo.go             # RBAC repository
+│   ├── route/                      # 🌐 HTTP handlers & routing
+│   │   ├── authRoute.go            # Authentication routes
+│   │   ├── achievementRoute.go     # Achievement routes
+│   │   ├── lecturerRoute.go        # Lecturer routes
+│   │   ├── adminRoute.go           # Admin routes
+│   │   ├── statisticsRoute.go      # Statistics routes
+│   │   └── notificationRoute.go    # Notification routes
+│   └── service/                    # 🔧 Business logic services
+│       ├── Authservice.go          # Authentication service
+│       ├── achievementService.go   # Achievement service
+│       ├── adminAchievementService.go # Admin achievement service
+│       ├── userService.go          # User management service
+│       ├── statisticsService.go    # Statistics service
+│       ├── notificationService.go  # Notification service
+│       ├── rbacservice.go          # RBAC service
+│       └── fileService.go          # File upload service
+├── tests/                          # 🧪 Comprehensive testing suite
+│   ├── run_tests.go                # Test runner script
+│   ├── test_swagger.go             # Swagger documentation tester
+│   ├── test_config.go              # Common test configuration
+│   ├── README.md                   # Testing documentation
+│   ├── mocks/                      # 🎭 Mock implementations
+│   │   ├── auth_repository_mock.go # Auth repository mock
+│   │   ├── achievement_repository_mock.go # Achievement repository mock
+│   │   ├── user_repository_mock.go # User repository mock
+│   │   ├── statistics_repository_mock.go # Statistics repository mock
+│   │   ├── notification_repository_mock.go # Notification repository mock
+│   │   ├── auth_service_mock.go    # Auth service mock
+│   │   └── notification_service_mock.go # Notification service mock
+│   ├── service/                    # 🔧 Service layer tests
+│   │   ├── auth_service_test.go    # Authentication service tests
+│   │   ├── achievement_service_test.go # Achievement service tests
+│   │   ├── user_service_test.go    # User management service tests
+│   │   ├── statistics_service_test.go # Statistics service tests
+│   │   └── notification_service_test.go # Notification service tests
+│   ├── middleware/                 # 🛡️ Middleware tests
+│   │   ├── auth_middleware_test.go # Authentication middleware tests
+│   │   └── rbac_middleware_test.go # RBAC middleware tests
+│   └── integration/                # 🔗 Integration tests
+│       └── auth_handler_test.go    # HTTP handler integration tests
+├── tools/                          # 🔧 Utility tools
+│   └── generate_hash.go            # Password hash generator
+├── .env.example                    # Environment variables template
+├── go.mod                          # Go module dependencies
+├── go.sum                          # Dependency checksums
+├── main.go                         # Application entry point
+├── Makefile                        # Build automation commands
+├── DEPLOYMENT.md                   # Production deployment guide
+└── README.md                       # Project documentation (this file)
 ```
 
 ## Feature Implementation

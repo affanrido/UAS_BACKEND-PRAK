@@ -7,11 +7,13 @@ import (
 )
 
 func main() {
-	fmt.Println("Running Unit Tests...")
+	fmt.Println("🧪 Running Unit Tests...")
 	
 	// Test individual service packages
 	testPackages := []string{
-		"./tests/service",
+		"./service",
+		"./middleware", 
+		"./integration",
 	}
 	
 	for _, pkg := range testPackages {
@@ -21,10 +23,12 @@ func main() {
 		cmd.Stderr = os.Stderr
 		
 		if err := cmd.Run(); err != nil {
-			fmt.Printf("Tests failed for package %s: %v\n", pkg, err)
+			fmt.Printf("❌ Tests failed for package %s: %v\n", pkg, err)
 		} else {
-			fmt.Printf("Tests passed for package %s\n", pkg)
+			fmt.Printf("✅ Tests passed for package %s\n", pkg)
 		}
 		fmt.Println("---")
 	}
+	
+	fmt.Println("🎉 All tests completed!")
 }

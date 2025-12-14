@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 )
 
 func main() {
-	fmt.Println("Testing Swagger Documentation...")
+	fmt.Println("🔍 Testing Swagger Documentation...")
 	
 	// Wait a moment for server to start
 	time.Sleep(2 * time.Second)

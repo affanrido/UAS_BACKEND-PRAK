@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -78,6 +79,22 @@ func (a *AuthService) Login(identifier, password string) (*model.LoginResponse, 
 		Token: signed,
 		User:  *user,
 	}, nil
+}
+
+// GenerateToken - Generate JWT token with user ID, role ID, and permissions
+func (a *AuthService) GenerateToken(userID, roleID uuid.UUID, permissions []string) (string, error) {
+	claims := model.CustomClaims{
+		UserID:      userID,
+		RoleID:      roleID,
+		Permissions: permissions,
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(a.TokenTTL)),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(a.SecretKey)
 }
 
 func (a *AuthService) ParseToken(tokenStr string) (*model.CustomClaims, error) {

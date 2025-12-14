@@ -85,7 +85,7 @@ func main() {
 	app.Use(logger.New())
 	app.Use(cors.New())
 
-	// Setup routes
+	// Setup existing routes (legacy)
 	route.SetupAuthRoutes(app, authHandler)
 	route.SetupProtectedRoutes(app, protectedHandler, rbacMiddleware)
 	route.SetupAchievementRoutes(app, achievementHandler, rbacMiddleware)
@@ -94,6 +94,18 @@ func main() {
 	route.SetupFileRoutes(app, fileHandler, rbacMiddleware)
 	route.SetupAdminRoutes(app, adminHandler, rbacMiddleware)
 	route.SetupStatisticsRoutes(app, statisticsHandler, rbacMiddleware)
+
+	// Setup v1 API routes (new)
+	route.SetupV1Routes(
+		app,
+		authService,
+		userService,
+		achievementService,
+		notificationService,
+		fileService,
+		statisticsService,
+		rbacMiddleware,
+	)
 
 	// Swagger documentation
 	app.Get("/swagger/*", swagger.New(swagger.Config{
